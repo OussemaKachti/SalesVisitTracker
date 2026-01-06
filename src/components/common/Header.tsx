@@ -77,8 +77,8 @@ const Header = () => {
       }
 
       if (stored.role) {
-        if (stored.role === 'superieur') {
-          setUserRole('Manager');
+        if (stored.role === 'admin') {
+          setUserRole('Admin');
         } else if (stored.role === 'commercial') {
           setUserRole('Commercial');
         } else {

@@ -86,9 +86,37 @@ export default function DashboardInteractive() {
   const [equipeLoading, setEquipeLoading] = useState(false);
   const [equipeError, setEquipeError] = useState<string | null>(null);
   const [teamMembersState, setTeamMembersState] = useState<TeamMember[] | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<'commercial' | 'admin' | null>(null);
 
   useEffect(() => {
     setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const raw = window.localStorage.getItem('stpro_user');
+      if (!raw) return;
+
+      const stored = JSON.parse(raw) as {
+        id?: string | null;
+        role?: string | null;
+      };
+
+      if (stored.id) {
+        setCurrentUserId(stored.id);
+      }
+
+      if (stored.role === 'admin') {
+        setCurrentUserRole('admin');
+      } else if (stored.role === 'commercial') {
+        setCurrentUserRole('commercial');
+      }
+    } catch {
+      // ignore malformed localStorage
+    }
   }, []);
 
   const formatVisitDate = (dateStr: string): string => {
@@ -100,6 +128,12 @@ export default function DashboardInteractive() {
       month: 'short',
       year: 'numeric',
     });
+  };
+
+  const canManageVisite = (visite: Visite): boolean => {
+    if (!currentUserId) return false;
+    if (currentUserRole === 'admin') return true;
+    return visite.commercial_id === currentUserId;
   };
 
   // Récupération des statistiques globales
@@ -258,14 +292,7 @@ export default function DashboardInteractive() {
           const baseAvatar = baseAvatars[index % baseAvatars.length];
           const fullName = `${member.prenom ?? ''} ${member.nom ?? ''}`.trim();
 
-          let displayRole: string;
-          if (member.role === 'superieur') {
-            displayRole = 'Manager';
-          } else if (member.role === 'commercial') {
-            displayRole = 'Commercial';
-          } else {
-            displayRole = member.role || 'Collaborateur';
-          }
+          const displayRole = member.role === 'admin' ? 'Admin' : 'Commercial';
 
           return {
             id: index + 1,
@@ -625,13 +652,15 @@ export default function DashboardInteractive() {
                         <th className="px-3 py-2.5 md:px-4 hidden lg:table-cell">
                           Prob.
                         </th>
+                        <th className="px-3 py-2.5 md:px-4 text-right">Actions</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {visitesLoading && (
                         <tr>
                           <td
-                            colSpan={9}
+                            colSpan={10}
 
                             className="px-4 py-6 text-center text-xs text-muted-foreground"
                           >
@@ -642,7 +671,7 @@ export default function DashboardInteractive() {
                       {!visitesLoading && visites.length === 0 && (
                         <tr>
                           <td
-                            colSpan={9}
+                            colSpan={10}
 
                             className="px-4 py-6 text-center text-xs text-muted-foreground"
                           >
@@ -651,86 +680,127 @@ export default function DashboardInteractive() {
                         </tr>
                       )}
                       {!visitesLoading &&
-                        visites.map((visite) => (
-                          <tr
-                            key={visite.id}
-                            className="border-t border-border/60 hover:bg-muted/40 transition-smooth"
-                          >
-                            <td className="px-3 py-3 md:px-4 whitespace-nowrap">
-                              <span className="font-cta text-xs md:text-sm text-foreground">
-                                {formatVisitDate(visite.date_visite)}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3 md:px-4 max-w-[160px] md:max-w-[200px]">
-                              <p className="text-xs md:text-sm font-cta font-semibold text-foreground truncate">
-                                {visite.entreprise}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground truncate">
-                                {visite.objet_visite}
-                              </p>
-                            </td>
-                            <td className="px-3 py-3 md:px-4 max-w-[140px] md:max-w-[180px]">
-                              <p className="text-xs md:text-sm text-foreground truncate">
-                                {visite.personne_rencontree}
-                              </p>
-                              {visite.fonction_poste && (
-                                <p className="text-[11px] text-muted-foreground truncate">
-                                  {visite.fonction_poste}
+                        visites.map((visite) => {
+                          const canManage = canManageVisite(visite);
+
+                          return (
+                            <tr
+                              key={visite.id}
+                              className="border-t border-border/60 hover:bg-muted/40 transition-smooth"
+                            >
+                              <td className="px-3 py-3 md:px-4 whitespace-nowrap">
+                                <span className="font-cta text-xs md:text-sm text-foreground">
+                                  {formatVisitDate(visite.date_visite)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3 md:px-4 max-w-[160px] md:max-w-[200px]">
+                                <p className="text-xs md:text-sm font-cta font-semibold text-foreground truncate">
+                                  {visite.entreprise}
                                 </p>
-                              )}
-                            </td>
-                            <td className="px-3 py-3 md:px-4 text-[11px] md:text-xs text-muted-foreground hidden lg:table-cell">
-                              {visite.commercial_name || '—'}
-                            </td>
-                            <td className="px-3 py-3 md:px-4 text-xs text-muted-foreground hidden md:table-cell">
-                              {visite.ville || '—'}
-                            </td>
-                            <td className="px-3 py-3 md:px-4">
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
-                                  visite.statut_visite === 'a_faire'
-                                    ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  {visite.objet_visite}
+                                </p>
+                              </td>
+                              <td className="px-3 py-3 md:px-4 max-w-[140px] md:max-w-[180px]">
+                                <p className="text-xs md:text-sm text-foreground truncate">
+                                  {visite.personne_rencontree}
+                                </p>
+                                {visite.fonction_poste && (
+                                  <p className="text-[11px] text-muted-foreground truncate">
+                                    {visite.fonction_poste}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 md:px-4 text-[11px] md:text-xs text-muted-foreground hidden lg:table-cell">
+                                {visite.commercial_name || '—'}
+                              </td>
+                              <td className="px-3 py-3 md:px-4 text-xs text-muted-foreground hidden md:table-cell">
+                                {visite.ville || '—'}
+                              </td>
+                              <td className="px-3 py-3 md:px-4">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
+                                    visite.statut_visite === 'a_faire'
+                                      ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                                      : visite.statut_visite === 'en_cours'
+                                      ? 'bg-primary/15 text-primary border border-primary/30'
+                                      : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                                  }`}
+                                >
+                                  {visite.statut_visite === 'a_faire'
+                                    ? 'À faire'
                                     : visite.statut_visite === 'en_cours'
-                                    ? 'bg-primary/15 text-primary border border-primary/30'
-                                    : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                                }`}
-                              >
-                                {visite.statut_visite === 'a_faire'
-                                  ? 'À faire'
-                                  : visite.statut_visite === 'en_cours'
-                                  ? 'En cours'
-                                  : 'Terminée'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3 md:px-4 hidden sm:table-cell">
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
-                                  visite.statut_action === 'en_attente'
-                                    ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                                    ? 'En cours'
+                                    : 'Terminée'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3 md:px-4 hidden sm:table-cell">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
+                                    visite.statut_action === 'en_attente'
+                                      ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                                      : visite.statut_action === 'accepte'
+                                      ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                                      : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+                                  }`}
+                                >
+                                  {visite.statut_action === 'en_attente'
+                                    ? 'En attente'
                                     : visite.statut_action === 'accepte'
-                                    ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                                    : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
-                                }`}
-                              >
-                                {visite.statut_action === 'en_attente'
-                                  ? 'En attente'
-                                  : visite.statut_action === 'accepte'
-                                  ? 'Acceptée'
-                                  : 'Refusée'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell whitespace-nowrap">
-                              {typeof visite.montant === 'number'
-                                ? `${visite.montant.toLocaleString('fr-FR')} DT`
-                                : '—'}
-                            </td>
-                            <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell">
-                              {typeof visite.probabilite === 'number'
-                                ? `${visite.probabilite}%`
-                                : '—'}
-                            </td>
-                          </tr>
-                        ))}
+                                    ? 'Acceptée'
+                                    : 'Refusée'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell whitespace-nowrap">
+                                {canManage
+                                  ? typeof visite.montant === 'number'
+                                    ? `${visite.montant.toLocaleString('fr-FR')} DT`
+                                    : '—'
+                                  : typeof visite.montant === 'number'
+                                  ? 'X'
+                                  : '—'}
+                              </td>
+                              <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell">
+                                {canManage
+                                  ? typeof visite.probabilite === 'number'
+                                    ? `${visite.probabilite}%`
+                                    : '—'
+                                  : typeof visite.probabilite === 'number'
+                                  ? 'X'
+                                  : '—'}
+                              </td>
+                              <td className="px-3 py-3 md:px-4 text-right">
+                                {canManage && (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border text-[11px] font-cta hover:bg-muted transition-smooth"
+                                      onClick={() => {
+                                        router.push(`/visit-form?edit=${visite.id}`);
+                                      }}
+                                    >
+                                      <Icon name="PencilSquareIcon" size={14} />
+                                      Modifier
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-destructive/40 text-[11px] font-cta text-destructive hover:bg-destructive/10 transition-smooth"
+                                      onClick={() => {
+                                        // La logique de suppression réelle pourra être branchée ici via une route API dédiée
+                                        // pour l'instant, on se contente d'une confirmation visuelle
+                                        // eslint-disable-next-line no-alert
+                                        alert('Fonction de suppression à implémenter.');
+                                      }}
+                                    >
+                                      <Icon name="TrashIcon" size={14} />
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>

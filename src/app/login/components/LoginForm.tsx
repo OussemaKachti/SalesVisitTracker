@@ -91,6 +91,7 @@ export default function LoginForm() {
       try {
         const user = data?.user as
           | {
+              id?: string;
               email?: string;
               user_metadata?: { nom?: string; prenom?: string; role?: string };
             }
@@ -105,7 +106,12 @@ export default function LoginForm() {
 
           window.localStorage.setItem(
             'stpro_user',
-            JSON.stringify({ displayName, email: user.email ?? null, role })
+            JSON.stringify({
+              id: user.id ?? null,
+              displayName,
+              email: user.email ?? null,
+              role,
+            })
           );
         }
       } catch {

@@ -50,9 +50,7 @@ export default function ModernVisitForm() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async () => {
     try {
       const payload = {
         entreprise: formData.entreprise,
@@ -177,7 +175,12 @@ export default function ModernVisitForm() {
 
         {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <form onSubmit={handleSubmit}>
+          <form
+            onSubmit={(e) => {
+              // Empêche la soumission implicite du formulaire (touche Entrée, etc.)
+              e.preventDefault();
+            }}
+          >
             
             {/* Step: Client */}
             {currentStep === 'client' && (
@@ -553,7 +556,8 @@ export default function ModernVisitForm() {
                 </button>
               ) : (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmit}
                   className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:shadow-xl transition-all transform hover:scale-105"
                 >
                   <Save className="w-5 h-5" />
