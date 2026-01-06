@@ -162,7 +162,6 @@ export async function GET(request: Request) {
     let query = supabaseDb
       .from('visites')
       .select('*', { count: 'exact' })
-      .eq('commercial_id', userData.user.id)
       .order('date_visite', { ascending: false });
 
     if (statutVisite) {
@@ -208,10 +207,72 @@ export async function GET(request: Request) {
     const fullNameFromMeta = `${userMeta.prenom ?? ''} ${userMeta.nom ?? ''}`
       .trim() || userData.user.email || null;
 
-    const visitesWithUser = visitesData.map((v) => ({
-      ...v,
-      commercial_name: fullNameFromMeta,
-    }));
+    const commercialIds = Array.from(
+      new Set(
+        visitesData
+          .map((v) => (v as { commercial_id?: string | null }).commercial_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    let profilesById: Record<
+      string,
+      { email: string | null; nom: string | null; prenom: string | null }
+    > = {};
+
+    if (commercialIds.length > 0) {
+      const { data: profilesData, error: profilesError } = await supabaseDb
+        .from('profiles')
+        .select('id, email, nom, prenom')
+        .in('id', commercialIds);
+
+      if (profilesError) {
+        console.error(
+          'Erreur lors de la récupération des profils pour les visites:',
+          profilesError
+        );
+      } else if (profilesData) {
+        profilesById = (profilesData as any[]).reduce(
+          (
+            acc,
+            profile: { id: string; email: string | null; nom: string | null; prenom: string | null }
+          ) => {
+            acc[profile.id] = {
+              email: profile.email,
+              nom: profile.nom,
+              prenom: profile.prenom,
+            };
+            return acc;
+          },
+          {} as Record<
+            string,
+            { email: string | null; nom: string | null; prenom: string | null }
+          >
+        );
+      }
+    }
+
+    const visitesWithUser = visitesData.map((v) => {
+      const commercialId = (v as { commercial_id?: string | null }).commercial_id;
+      let commercialName: string | null = null;
+
+      if (commercialId) {
+        if (commercialId === userData.user.id) {
+          commercialName = fullNameFromMeta;
+        } else {
+          const profile = profilesById[commercialId];
+          if (profile) {
+            const fullName = `${profile.prenom ?? ''} ${profile.nom ?? ''}`.trim();
+            commercialName = fullName || profile.email || null;
+          }
+        }
+      }
+
+      return {
+        ...v,
+        commercial_name: commercialName,
+      };
+    });
 
     return NextResponse.json(
       {

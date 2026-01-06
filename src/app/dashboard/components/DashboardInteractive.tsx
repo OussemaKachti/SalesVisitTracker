@@ -757,7 +757,7 @@ export default function DashboardInteractive() {
                                     ? `${visite.montant.toLocaleString('fr-FR')} DT`
                                     : '—'
                                   : typeof visite.montant === 'number'
-                                  ? 'X'
+                                  ? '*****'
                                   : '—'}
                               </td>
                               <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell">
@@ -766,7 +766,7 @@ export default function DashboardInteractive() {
                                     ? `${visite.probabilite}%`
                                     : '—'
                                   : typeof visite.probabilite === 'number'
-                                  ? 'X'
+                                  ? '*****'
                                   : '—'}
                               </td>
                               <td className="px-3 py-3 md:px-4 text-right">
@@ -774,26 +774,26 @@ export default function DashboardInteractive() {
                                   <div className="flex items-center justify-end gap-2">
                                     <button
                                       type="button"
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-border text-[11px] font-cta hover:bg-muted transition-smooth"
+                                      className="inline-flex items-center justify-center p-1.5 rounded-full border border-border text-[11px] font-cta hover:bg-muted transition-smooth"
                                       onClick={() => {
                                         router.push(`/visit-form?edit=${visite.id}`);
                                       }}
+                                      aria-label="Modifier la visite"
                                     >
                                       <Icon name="PencilSquareIcon" size={14} />
-                                      Modifier
                                     </button>
                                     <button
                                       type="button"
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-destructive/40 text-[11px] font-cta text-destructive hover:bg-destructive/10 transition-smooth"
+                                      className="inline-flex items-center justify-center p-1.5 rounded-full border border-destructive/40 text-[11px] font-cta text-destructive hover:bg-destructive/10 transition-smooth"
                                       onClick={() => {
                                         // La logique de suppression réelle pourra être branchée ici via une route API dédiée
                                         // pour l'instant, on se contente d'une confirmation visuelle
                                         // eslint-disable-next-line no-alert
                                         alert('Fonction de suppression à implémenter.');
                                       }}
+                                      aria-label="Supprimer la visite"
                                     >
                                       <Icon name="TrashIcon" size={14} />
-                                      Supprimer
                                     </button>
                                   </div>
                                 )}
