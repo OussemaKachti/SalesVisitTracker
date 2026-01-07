@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '../../../components/ui/AppIcon';
+import { useToast } from '@/hooks/useToast';
+import { ToastContainer } from '@/components/ui/ToastContainer';
 import type { StatsVisites, Visite, EquipeMember } from '@/types/database';
 
 import KPICard from './KPICard';
@@ -62,6 +64,7 @@ const DEFAULT_AVATAR_ALT = 'Photo de profil utilisateur';
 
 export default function DashboardInteractive() {
   const router = useRouter();
+  const { toasts, removeToast, success, error } = useToast();
   const [isHydrated, setIsHydrated] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -141,7 +144,8 @@ export default function DashboardInteractive() {
 
   const canViewSensitive = (visite: Visite): boolean => {
     if (!currentUserId) return false;
-    // Admin et consultant voient toujours tout, le commercial uniquement ses visites
+    // Admin et consultant voient toujours tout
+    // Commercial voit uniquement ses propres montants et probabilités
     if (currentUserRole === 'admin' || currentUserRole === 'consultant') {
       return true;
     }
@@ -495,7 +499,9 @@ export default function DashboardInteractive() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <div className="min-h-screen bg-background">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse"></div>
@@ -804,11 +810,24 @@ export default function DashboardInteractive() {
                                     <button
                                       type="button"
                                       className="inline-flex items-center justify-center p-1.5 rounded-full border border-destructive/40 text-[11px] font-cta text-destructive hover:bg-destructive/10 transition-smooth"
-                                      onClick={() => {
-                                        // La logique de suppression réelle pourra être branchée ici via une route API dédiée
-                                        // pour l'instant, on se contente d'une confirmation visuelle
-                                        // eslint-disable-next-line no-alert
-                                        alert('Fonction de suppression à implémenter.');
+                                      onClick={async () => {
+                                        if (!confirm('Êtes-vous sûr de vouloir supprimer cette visite ?')) {
+                                          return;
+                                        }
+                                        try {
+                                          const response = await fetch(`/api/visites/delete?id=${visite.id}`, {
+                                            method: 'DELETE',
+                                          });
+                                          if (response.ok) {
+                                            success('Visite supprimée avec succès.');
+                                            setTimeout(() => window.location.reload(), 500);
+                                          } else {
+                                            const errorData = await response.json().catch(() => ({}));
+                                            error(errorData.error || 'Impossible de supprimer la visite.');
+                                          }
+                                        } catch (err) {
+                                          error('Erreur lors de la suppression de la visite.');
+                                        }
                                       }}
                                       aria-label="Supprimer la visite"
                                     >
@@ -949,6 +968,7 @@ export default function DashboardInteractive() {
           </div>
         </main>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

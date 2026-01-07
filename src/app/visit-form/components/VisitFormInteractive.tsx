@@ -1,17 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Building2, User, Calendar, Target, TrendingUp, 
   CheckCircle2, AlertCircle, ChevronRight, ChevronLeft,
   Sparkles, Phone, Mail, MapPin, DollarSign, Clock,
-  FileText, Tag, Briefcase, Save
+  FileText, Tag, Briefcase, Save, Trash2, ArrowLeft
 } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
+import { ToastContainer } from '@/components/ui/ToastContainer';
 
 type Step = 'client' | 'visite' | 'suivi';
 
 export default function ModernVisitForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+  const { toasts, removeToast, success, error } = useToast();
+  
   const [currentStep, setCurrentStep] = useState<Step>('client');
+  const [isLoading, setIsLoading] = useState(!!editId);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     entreprise: '',
     personne_rencontree: '',
@@ -36,6 +46,57 @@ export default function ModernVisitForm() {
     { id: 'suivi' as Step, title: 'Suivi', icon: TrendingUp, color: 'green' }
   ];
 
+  // Charger la visite si en mode édition
+  useEffect(() => {
+    if (!editId) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loadVisite = async () => {
+      try {
+        const url = new URL('/api/visites', window.location.origin);
+        url.searchParams.set('page', '1');
+        url.searchParams.set('pageSize', '1000');
+        
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+          throw new Error('Impossible de charger la visite');
+        }
+
+        const { data } = await response.json();
+        const visite = data.find((v: any) => v.id === editId);
+
+        if (visite) {
+          setFormData({
+            entreprise: visite.entreprise || '',
+            personne_rencontree: visite.personne_rencontree || '',
+            fonction_poste: visite.fonction_poste || '',
+            ville: visite.ville || '',
+            tel_fixe: visite.tel_fixe || '',
+            mobile: visite.mobile || '',
+            email: visite.email || '',
+            date_visite: visite.date_visite || '',
+            objet_visite: visite.objet_visite || '',
+            provenance_contact: visite.provenance_contact || '',
+            interet_client: visite.interet_client || '',
+            montant: visite.montant ? String(visite.montant) : '',
+            probabilite: visite.probabilite || 50,
+            statut_visite: visite.statut_visite || 'a_faire',
+            statut_action: visite.statut_action || 'en_attente'
+          });
+        }
+      } catch (err) {
+        console.error('Erreur lors du chargement de la visite:', err);
+        error('Impossible de charger la visite');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadVisite();
+  }, [editId]);
+
   const currentStepIndex = steps.findIndex(s => s.id === currentStep);
 
   const nextStep = () => {
@@ -52,6 +113,7 @@ export default function ModernVisitForm() {
 
   const handleSubmit = async () => {
     try {
+      setIsSubmitting(true);
       const payload = {
         entreprise: formData.entreprise,
         personne_rencontree: formData.personne_rencontree,
@@ -70,61 +132,139 @@ export default function ModernVisitForm() {
         probabilite: formData.probabilite,
       };
 
-      const response = await fetch('/api/visites', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: payload }),
-      });
+      if (editId) {
+        // Mode édition
+        const response = await fetch('/api/visites/update', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ id: editId, data: payload }),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Erreur lors de la création de la visite:', errorText);
-        alert("Impossible d'enregistrer la visite.");
-        return;
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erreur lors de la mise à jour de la visite:', errorText);
+          error("Impossible de mettre à jour la visite.");
+          return;
+        }
+
+        success('Visite mise à jour avec succès.');
+        setTimeout(() => router.push('/dashboard'), 500);
+      } else {
+        // Mode création
+        const response = await fetch('/api/visites', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ data: payload }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erreur lors de la création de la visite:', errorText);
+          error("Impossible d'enregistrer la visite.");
+          return;
+        }
+
+        setFormData({
+          entreprise: '',
+          personne_rencontree: '',
+          fonction_poste: '',
+          ville: '',
+          tel_fixe: '',
+          mobile: '',
+          email: '',
+          date_visite: '',
+          objet_visite: '',
+          provenance_contact: '',
+          interet_client: '',
+          montant: '',
+          probabilite: 50,
+          statut_visite: 'a_faire',
+          statut_action: 'en_attente',
+        });
+        setCurrentStep('client');
+        success('Visite enregistrée avec succès.');
       }
-
-      setFormData({
-        entreprise: '',
-        personne_rencontree: '',
-        fonction_poste: '',
-        ville: '',
-        tel_fixe: '',
-        mobile: '',
-        email: '',
-        date_visite: '',
-        objet_visite: '',
-        provenance_contact: '',
-        interet_client: '',
-        montant: '',
-        probabilite: 50,
-        statut_visite: 'a_faire',
-        statut_action: 'en_attente',
-      });
-      setCurrentStep('client');
-      alert('Visite enregistrée avec succès.');
-    } catch (error) {
-      console.error('Erreur inattendue lors de la création de la visite:', error);
-      alert("Erreur inattendue lors de l'enregistrement de la visite.");
+    } catch (err) {
+      console.error('Erreur inattendue lors de la création de la visite:', err);
+      error("Erreur inattendue lors de l'enregistrement de la visite.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  const handleDelete = async () => {
+    if (!editId) return;
+    
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette visite ?')) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/visites/delete?id=${editId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        error(errorData.error || "Impossible de supprimer la visite.");
+        return;
+      }
+
+      success('Visite supprimée avec succès.');
+      setTimeout(() => router.push('/dashboard'), 500);
+    } catch (err) {
+      console.error('Erreur lors de la suppression:', err);
+      error('Erreur lors de la suppression de la visite.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 py-8 px-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement de la visite...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 py-8 px-4">
+    <>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 py-8 px-4">
       <div className="max-w-5xl mx-auto">
         
         {/* Header avec animation */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
+          <button
+            onClick={() => router.back()}
+            className="absolute left-0 top-0 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm">Retour</span>
+          </button>
+
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-blue-100 mb-4">
             <Sparkles className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-semibold text-blue-600">Nouvelle visite</span>
+            <span className="text-sm font-semibold text-blue-600">
+              {editId ? 'Modifier une visite' : 'Nouvelle visite'}
+            </span>
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Créer une visite commerciale
+            {editId ? 'Modifier la visite' : 'Créer une visite commerciale'}
           </h1>
           <p className="text-gray-600">
-            Suivez les étapes pour enregistrer votre visite client
+            {editId 
+              ? 'Mettez à jour les informations de cette visite'
+              : 'Suivez les étapes pour enregistrer votre visite client'}
           </p>
         </div>
 
@@ -534,34 +674,49 @@ export default function ModernVisitForm() {
             )}
 
             {/* Navigation Buttons */}
-            <div className="bg-gray-50 px-8 py-6 border-t border-gray-100 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={prevStep}
-                disabled={currentStepIndex === 0}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-gray-700 bg-white border-2 border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                Précédent
-              </button>
-
-              {currentStepIndex < steps.length - 1 ? (
+            <div className="bg-gray-50 px-8 py-6 border-t border-gray-100 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={nextStep}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg transition-all"
+                  onClick={prevStep}
+                  disabled={currentStepIndex === 0}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-gray-700 bg-white border-2 border-gray-200 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
-                  Suivant
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronLeft className="w-5 h-5" />
+                  Précédent
                 </button>
-              ) : (
+
+                {currentStepIndex < steps.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:shadow-lg transition-all"
+                  >
+                    Suivant
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-5 h-5" />
+                    {isSubmitting ? 'Enregistrement...' : editId ? 'Mettre à jour' : 'Enregistrer la visite'}
+                  </button>
+                )}
+              </div>
+
+              {editId && (
                 <button
                   type="button"
-                  onClick={handleSubmit}
-                  className="flex items-center gap-2 px-8 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:shadow-xl transition-all transform hover:scale-105"
+                  onClick={handleDelete}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-red-500 to-pink-600 hover:shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-5 h-5" />
-                  Enregistrer la visite
+                  <Trash2 className="w-5 h-5" />
+                  Supprimer
                 </button>
               )}
             </div>
@@ -599,6 +754,7 @@ export default function ModernVisitForm() {
           animation: fade-in 0.3s ease-out;
         }
       `}</style>
-    </div>
+      </div>
+    </>
   );
 }

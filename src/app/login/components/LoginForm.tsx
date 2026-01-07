@@ -102,7 +102,19 @@ export default function LoginForm() {
             user.user_metadata?.nom ?? ''
           }`.trim();
           const displayName = fullName || user.email || 'Utilisateur';
-          const role = user.user_metadata?.role ?? null;
+          
+          // Récupérer le rôle depuis la table profiles
+          let role = null;
+          try {
+            const profileResponse = await fetch('/api/profiles');
+            if (profileResponse.ok) {
+              const profileData = await profileResponse.json().catch(() => null);
+              role = profileData?.role ?? null;
+            }
+          } catch {
+            // Si la récupération du profil échoue, garder le rôle de user_metadata
+            role = user.user_metadata?.role ?? null;
+          }
 
           window.localStorage.setItem(
             'stpro_user',
