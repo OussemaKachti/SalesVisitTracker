@@ -25,10 +25,8 @@ interface RevenueData {
 }
 
 interface TeamMember {
-  id: number;
+  id: string;
   name: string;
-  image: string;
-  alt: string;
   visits: number;
   conversions: number;
   revenue: number;
@@ -41,11 +39,58 @@ export default function AnalyticsInteractive() {
   const [stats, setStats] = useState<StatsVisites | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+  
+  // Role and filters
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<'commercial' | 'admin' | 'consultant' | null>(null);
+  const [selectedCommercial, setSelectedCommercial] = useState<string>('');
+  const [selectedSociete, setSelectedSociete] = useState<string>('');
+  const [societes, setSocietes] = useState<string[]>([]);
+  const [commercials, setCommercials] = useState<Array<{ id: string; name: string }>>([]);
+  
+  // Data
+  const [performanceDataState, setPerformanceDataState] = useState<PerformanceData[]>([]);
+  const [revenueDataState, setRevenueDataState] = useState<RevenueData[]>([]);
+  const [teamData, setTeamData] = useState<TeamMember[]>([]);
+  const [performanceLoading, setPerformanceLoading] = useState(false);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [teamLoading, setTeamLoading] = useState(false);
 
+  // Initialize hydration
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
+  // Get user info from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const raw = window.localStorage.getItem('stpro_user');
+      if (!raw) return;
+
+      const stored = JSON.parse(raw) as {
+        id?: string | null;
+        role?: string | null;
+      };
+
+      if (stored.id) {
+        setCurrentUserId(stored.id);
+      }
+
+      if (stored.role === 'admin') {
+        setCurrentUserRole('admin');
+      } else if (stored.role === 'commercial') {
+        setCurrentUserRole('commercial');
+      } else if (stored.role === 'consultant') {
+        setCurrentUserRole('consultant');
+      }
+    } catch {
+      // ignore malformed localStorage
+    }
+  }, []);
+
+  // Fetch stats
   useEffect(() => {
     if (!isHydrated) return;
 
@@ -56,7 +101,7 @@ export default function AnalyticsInteractive() {
 
         const response = await fetch('/api/visites/stats');
         if (!response.ok) {
-          console.error('Erreur lors du chargement des statistiques de visites (analytics):', await response.text());
+          console.error('Erreur lors du chargement des statistiques:', await response.text());
           setStatsError("Impossible de charger les statistiques de vos visites.");
           return;
         }
@@ -64,7 +109,7 @@ export default function AnalyticsInteractive() {
         const data = (await response.json()) as StatsVisites;
         setStats(data);
       } catch (error) {
-        console.error('Erreur réseau lors du chargement des statistiques de visites (analytics):', error);
+        console.error('Erreur réseau:', error);
         setStatsError("Erreur réseau lors du chargement des statistiques.");
       } finally {
         setStatsLoading(false);
@@ -74,125 +119,195 @@ export default function AnalyticsInteractive() {
     fetchStats();
   }, [isHydrated, timeFilter]);
 
-  const performanceData: PerformanceData[] = [
-    { month: 'Jan', visits: 245, conversions: 89, revenue: 156 },
-    { month: 'Fév', visits: 312, conversions: 124, revenue: 198 },
-    { month: 'Mar', visits: 289, conversions: 98, revenue: 167 },
-    { month: 'Avr', visits: 356, conversions: 145, revenue: 223 },
-    { month: 'Mai', visits: 398, conversions: 167, revenue: 267 },
-    { month: 'Juin', visits: 423, conversions: 189, revenue: 298 }
-  ];
+  // Fetch companies and commercials
+  useEffect(() => {
+    if (!isHydrated || !currentUserRole) return;
 
-  const revenueData: RevenueData[] = [
-    { month: 'Jan', revenue: 156, target: 180 },
-    { month: 'Fév', revenue: 198, target: 200 },
-    { month: 'Mar', revenue: 167, target: 190 },
-    { month: 'Avr', revenue: 223, target: 210 },
-    { month: 'Mai', revenue: 267, target: 250 },
-    { month: 'Juin', revenue: 298, target: 280 }
-  ];
+    const fetchFilters = async () => {
+      try {
+        // Fetch companies
+        const societesRes = await fetch('/api/analytics/societes');
+        if (societesRes.ok) {
+          const { data } = await societesRes.json();
+          setSocietes(data || []);
+        }
 
-  const teamData: TeamMember[] = [
-    {
-      id: 1,
-      name: 'Sophie Martin',
-      image: "https://img.rocket.new/generatedImages/rocket_gen_img_145063ccb-1763295272227.png",
-      alt: 'Femme professionnelle aux cheveux bruns en tailleur noir souriant dans un bureau moderne',
-      visits: 156,
-      conversions: 67,
-      revenue: 134,
-      performance: 92
-    },
-    {
-      id: 2,
-      name: 'Thomas Dubois',
-      image: "https://img.rocket.new/generatedImages/rocket_gen_img_187c00342-1763296247276.png",
-      alt: 'Homme d\'affaires en chemise bleue avec lunettes souriant dans un environnement professionnel',
-      visits: 142,
-      conversions: 58,
-      revenue: 118,
-      performance: 85
-    },
-    {
-      id: 3,
-      name: 'Marie Laurent',
-      image: "https://img.rocket.new/generatedImages/rocket_gen_img_1d8bbfe7d-1763296604767.png",
-      alt: 'Femme d\'affaires blonde en veste grise avec un sourire confiant dans un cadre corporatif',
-      visits: 134,
-      conversions: 52,
-      revenue: 106,
-      performance: 78
-    },
-    {
-      id: 4,
-      name: 'Pierre Rousseau',
-      image: "https://img.rocket.new/generatedImages/rocket_gen_img_14d350b04-1767292815017.png",
-      alt: 'Homme professionnel en costume gris foncé avec cravate bleue dans un bureau élégant',
-      visits: 128,
-      conversions: 49,
-      revenue: 98,
-      performance: 74
-    }
-  ];
+        // Fetch commercials if admin or consultant
+        if (currentUserRole === 'admin' || currentUserRole === 'consultant') {
+          const commercialsRes = await fetch('/api/equipe');
+          if (commercialsRes.ok) {
+            const { data } = await commercialsRes.json();
+            if (data) {
+              setCommercials(
+                data.map((m: any) => ({
+                  id: m.id,
+                  name: `${m.prenom || ''} ${m.nom || ''}`.trim() || m.email,
+                }))
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des filtres:', error);
+      }
+    };
 
-  const metrics = [
-    {
-      title: 'Total des visites',
-      value: '2,023',
-      change: 12.5,
-      trend: 'up' as const,
-      icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z'
-    },
-    {
-      title: 'Taux de conversion',
-      value: '42.8%',
-      change: 8.3,
-      trend: 'up' as const,
-      icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
-    },
-    {
-      title: 'Chiffre d\'affaires',
-      value: '1,309k€',
-      change: 15.7,
-      trend: 'up' as const,
-      icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-    },
-    {
-      title: 'Clients actifs',
-      value: '847',
-      change: -3.2,
-      trend: 'down' as const,
-      icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
-    }
-  ];
+    fetchFilters();
+  }, [isHydrated, currentUserRole]);
 
+  // Fetch performance data
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const fetchPerformance = async () => {
+      try {
+        setPerformanceLoading(true);
+        const params = new URLSearchParams();
+        
+        if (currentUserRole === 'commercial' && currentUserId) {
+          params.set('commercialId', currentUserId);
+        } else if (selectedCommercial) {
+          params.set('commercialId', selectedCommercial);
+        }
+        
+        if (selectedSociete) {
+          params.set('societe', selectedSociete);
+        }
+
+        console.log('Fetching performance with params:', params.toString());
+        const response = await fetch(`/api/analytics/performance?${params.toString()}`);
+        console.log('Performance response status:', response.status);
+        
+        if (response.ok) {
+          const json = await response.json();
+          console.log('Performance data received:', json);
+          setPerformanceDataState(json.data || []);
+        } else {
+          console.error('Performance fetch failed:', response.status, await response.text());
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement de la performance:', error);
+      } finally {
+        setPerformanceLoading(false);
+      }
+    };
+
+    fetchPerformance();
+  }, [isHydrated, currentUserRole, currentUserId, selectedCommercial, selectedSociete, timeFilter]);
+
+  // Fetch revenue data
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const fetchRevenue = async () => {
+      try {
+        setRevenueLoading(true);
+        const params = new URLSearchParams();
+        
+        if (currentUserRole === 'commercial' && currentUserId) {
+          params.set('commercialId', currentUserId);
+        } else if (selectedCommercial) {
+          params.set('commercialId', selectedCommercial);
+        }
+        
+        if (selectedSociete) {
+          params.set('societe', selectedSociete);
+        }
+
+        console.log('Fetching revenue with params:', params.toString());
+        const response = await fetch(`/api/analytics/revenue?${params.toString()}`);
+        console.log('Revenue response status:', response.status);
+        
+        if (response.ok) {
+          const json = await response.json();
+          console.log('Revenue data received:', json);
+          setRevenueDataState(json.data || []);
+        } else {
+          console.error('Revenue fetch failed:', response.status, await response.text());
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du chiffre d\'affaires:', error);
+      } finally {
+        setRevenueLoading(false);
+      }
+    };
+
+    fetchRevenue();
+  }, [isHydrated, currentUserRole, currentUserId, selectedCommercial, selectedSociete, timeFilter]);
+
+  // Fetch team data (only for admin/consultant)
+  useEffect(() => {
+    if (!isHydrated || currentUserRole === 'commercial') return;
+
+    const fetchTeam = async () => {
+      try {
+        setTeamLoading(true);
+        const params = new URLSearchParams();
+        
+        if (selectedSociete) {
+          params.set('societe', selectedSociete);
+        }
+
+        console.log('Fetching team with params:', params.toString());
+        const response = await fetch(`/api/analytics/team?${params.toString()}`);
+        console.log('Team response status:', response.status);
+        
+        if (response.ok) {
+          const json = await response.json();
+          console.log('Team data received:', json);
+          setTeamData(json.data || []);
+        } else {
+          console.error('Team fetch failed:', response.status, await response.text());
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement de l\'équipe:', error);
+      } finally {
+        setTeamLoading(false);
+      }
+    };
+
+    fetchTeam();
+  }, [isHydrated, currentUserRole, selectedSociete]);
+
+  // Calculate metrics
   const getMetrics = () => {
-    if (!stats) {
-      return metrics;
-    }
+    const perfData = performanceDataState;
+    const revData = revenueDataState;
 
-    const total = stats.total_visites || 0;
-    const terminees = stats.visites_terminees || 0;
-    const baseTotal = terminees > 0 ? terminees : total;
-    const tauxConversion =
-      baseTotal > 0 ? (stats.visites_acceptees / baseTotal) * 100 : 0;
-
-    const montantK = stats.montant_total / 1000;
+    const totalVisits = perfData.reduce((sum, d) => sum + d.visits, 0);
+    const totalConversions = perfData.reduce((sum, d) => sum + d.conversions, 0);
+    const conversionRate = totalVisits > 0 ? (totalConversions / totalVisits) * 100 : 0;
+    const totalRevenue = revData.reduce((sum, d) => sum + d.revenue, 0);
 
     return [
       {
-        ...metrics[0],
-        value: total.toLocaleString('fr-FR'),
+        title: currentUserRole === 'commercial' ? 'Mes visites' : 'Total des visites',
+        value: totalVisits.toLocaleString('fr-FR'),
+        change: 12.5,
+        trend: 'up' as const,
+        icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z'
       },
       {
-        ...metrics[1],
-        value: `${tauxConversion.toFixed(1)}%`,
+        title: 'Taux de conversion',
+        value: `${conversionRate.toFixed(1)}%`,
+        change: 8.3,
+        trend: 'up' as const,
+        icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
       },
       {
-        ...metrics[2],
-        value: `${montantK.toFixed(1)}k DT`,
+        title: 'Chiffre d\'affaires',
+        value: `${(totalRevenue / 1000).toFixed(1)}k DT`,
+        change: 15.7,
+        trend: 'up' as const,
+        icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
       },
-      metrics[3],
+      ...(currentUserRole !== 'commercial' ? [{
+        title: 'Clients actifs',
+        value: '847',
+        change: -3.2,
+        trend: 'down' as const,
+        icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
+      }] : []),
     ];
   };
 
@@ -228,17 +343,61 @@ export default function AnalyticsInteractive() {
               Centre d'Analyse
             </h1>
             <p className="text-muted-foreground font-body">
-              Visualisations avancées et rapports de performance en temps réel
+              {currentUserRole === 'commercial' 
+                ? 'Votre performance commerciale en temps réel'
+                : 'Visualisations avancées et rapports de performance en temps réel'}
             </p>
           </div>
           <div className="flex items-center space-x-4">
             <ExportButton onExport={handleExport} />
-            <button className="flex items-center space-x-2 px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-smooth font-cta font-medium text-sm">
-              <Icon name="AdjustmentsHorizontalIcon" size={18} />
-              <span>Filtres</span>
-            </button>
           </div>
         </div>
+
+        {/* Filters - Only for admin/consultant */}
+        {(currentUserRole === 'admin' || currentUserRole === 'consultant') && (
+          <div className="bg-card rounded-xl p-6 border border-border mb-8">
+            <h3 className="text-sm font-cta font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Icon name="AdjustmentsHorizontalIcon" size={18} />
+              Filtres avancés
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-cta text-muted-foreground mb-2">
+                  Par commercial
+                </label>
+                <select
+                  value={selectedCommercial}
+                  onChange={(e) => setSelectedCommercial(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">Tous les commerciaux</option>
+                  {commercials.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-cta text-muted-foreground mb-2">
+                  Par société
+                </label>
+                <select
+                  value={selectedSociete}
+                  onChange={(e) => setSelectedSociete(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-muted border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">Toutes les sociétés</option>
+                  {societes.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Time Filter */}
         <div className="flex items-center space-x-3 mb-8 overflow-x-auto pb-2">
@@ -261,20 +420,15 @@ export default function AnalyticsInteractive() {
             label="Cette année"
             active={timeFilter === 'year'}
             onClick={() => setTimeFilter('year')} />
-
         </div>
 
         {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-2">
+        <div className={`grid gap-6 mb-8 ${currentUserRole === 'commercial' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'}`}>
           {getMetrics().map((metric, index) => (
             <MetricCard key={index} {...metric} />
           ))}
         </div>
-        {statsLoading && (
-          <p className="mb-6 text-sm text-muted-foreground font-body">
-            Chargement des statistiques de visites...
-          </p>
-        )}
+
         {statsError && !statsLoading && (
           <p className="mb-6 text-sm text-destructive font-body">
             {statsError}
@@ -282,37 +436,32 @@ export default function AnalyticsInteractive() {
         )}
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className={`grid gap-8 mb-8 ${currentUserRole === 'commercial' ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
           <ChartCard
             title="Performance Mensuelle"
-            subtitle="Visites et conversions par mois">
-
-            <PerformanceChart data={performanceData} />
+            subtitle={currentUserRole === 'commercial' ? 'Vos visites et conversions' : 'Visites et conversions par mois'}
+            loading={performanceLoading}>
+            <PerformanceChart data={performanceDataState} />
           </ChartCard>
 
           <ChartCard
             title="Évolution du Chiffre d'Affaires"
-            subtitle="Comparaison avec les objectifs">
-
-            <RevenueChart data={revenueData} />
+            subtitle={currentUserRole === 'commercial' ? 'Votre chiffre d\'affaires' : 'Comparaison avec les objectifs'}
+            loading={revenueLoading}>
+            <RevenueChart data={revenueDataState} />
           </ChartCard>
         </div>
 
-        {/* Team Performance Table */}
-        <ChartCard
-          title="Performance de l'Équipe"
-          subtitle="Classement des membres par performance">
-
-          <TeamPerformanceTable data={teamData} />
-        </ChartCard>
-
-        {/* Floating Particles Effect */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-primary/20 rounded-full animate-pulse"></div>
-          <div className="absolute top-1/3 right-1/3 w-3 h-3 bg-secondary/20 rounded-full animate-pulse delay-100"></div>
-          <div className="absolute bottom-1/4 left-1/3 w-2 h-2 bg-accent/20 rounded-full animate-pulse delay-200"></div>
-        </div>
+        {/* Team Performance Table - Only for admin/consultant */}
+        {(currentUserRole === 'admin' || currentUserRole === 'consultant') && (
+          <ChartCard
+            title="Performance de l'Équipe"
+            subtitle="Classement des membres par performance"
+            loading={teamLoading}>
+            <TeamPerformanceTable data={teamData} />
+          </ChartCard>
+        )}
       </div>
-    </div>);
-
+    </div>
+  );
 }

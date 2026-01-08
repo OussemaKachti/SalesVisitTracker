@@ -13,6 +13,14 @@ interface RevenueChartProps {
 }
 
 export default function RevenueChart({ data }: RevenueChartProps) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-80 flex items-center justify-center">
+        <p className="text-sm text-muted-foreground font-body">Aucune donnée disponible</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-80" aria-label="Évolution du chiffre d'affaires - Graphique linéaire">
       <ResponsiveContainer width="100%" height="100%">
@@ -37,7 +45,6 @@ export default function RevenueChart({ data }: RevenueChartProps) {
               fontFamily: 'var(--font-body)'
             }}
             labelStyle={{ color: '#F9FAFB', fontWeight: 600 }}
-            formatter={(value?: number) => [`${value ?? 0}k€`, '']}
           />
           <Legend 
             wrapperStyle={{ 

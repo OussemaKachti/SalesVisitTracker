@@ -14,10 +14,24 @@ interface PerformanceChartProps {
 }
 
 export default function PerformanceChart({ data }: PerformanceChartProps) {
+  // Provide fallback data if empty
+  const chartData = data && data.length > 0 ? data : [
+    { month: 'Jan', visits: 0, conversions: 0, revenue: 0 },
+    { month: 'Fév', visits: 0, conversions: 0, revenue: 0 },
+  ];
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-80 flex items-center justify-center">
+        <p className="text-sm text-muted-foreground font-body">Aucune donnée disponible</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-80" aria-label="Performance mensuelle - Graphique en barres">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
           <XAxis 
             dataKey="month" 

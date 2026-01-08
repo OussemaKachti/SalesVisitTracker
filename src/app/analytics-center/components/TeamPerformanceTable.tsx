@@ -4,13 +4,12 @@
 import AppImage from '@/components/ui/AppImage';
 
 interface TeamMember {
-  id: number;
+  id: string;
   name: string;
-  image: string;
-  alt: string;
   visits: number;
   conversions: number;
   revenue: number;
+  prévisionnel: number;
   performance: number;
 }
 
@@ -37,6 +36,9 @@ export default function TeamPerformanceTable({ data }: TeamPerformanceTableProps
               Chiffre d'affaires
             </th>
             <th className="text-center py-4 px-4 text-sm font-cta font-semibold text-muted-foreground">
+              Prévisionnel
+            </th>
+            <th className="text-center py-4 px-4 text-sm font-cta font-semibold text-muted-foreground">
               Performance
             </th>
           </tr>
@@ -45,16 +47,7 @@ export default function TeamPerformanceTable({ data }: TeamPerformanceTableProps
           {data.map((member) => (
             <tr key={member.id} className="border-b border-border hover:bg-muted/50 transition-smooth">
               <td className="py-4 px-4">
-                <div className="flex items-center space-x-3">
-                  <div className="relative w-10 h-10 rounded-full overflow-hidden">
-                    <AppImage
-                      src={member.image}
-                      alt={member.alt}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="text-sm font-body font-medium text-foreground">{member.name}</span>
-                </div>
+                <span className="text-sm font-body font-medium text-foreground">{member.name}</span>
               </td>
               <td className="py-4 px-4 text-center">
                 <span className="text-sm font-body text-foreground">{member.visits}</span>
@@ -63,7 +56,10 @@ export default function TeamPerformanceTable({ data }: TeamPerformanceTableProps
                 <span className="text-sm font-body text-foreground">{member.conversions}</span>
               </td>
               <td className="py-4 px-4 text-center">
-                <span className="text-sm font-body font-semibold text-foreground">{member.revenue}k€</span>
+                <span className="text-sm font-body font-semibold text-foreground">{member.revenue} DT</span>
+              </td>
+              <td className="py-4 px-4 text-center">
+                <span className="text-sm font-body font-semibold text-foreground text-primary">{member.prévisionnel} DT</span>
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center justify-center space-x-2">
@@ -75,7 +71,7 @@ export default function TeamPerformanceTable({ data }: TeamPerformanceTableProps
                           : member.performance >= 60
                           ? 'bg-warning' :'bg-error'
                       }`}
-                      style={{ width: `${member.performance}%` }}
+                      style={{ width: `${Math.min(member.performance, 100)}%` }}
                     />
                   </div>
                   <span className="text-sm font-cta font-semibold text-foreground">{member.performance}%</span>
