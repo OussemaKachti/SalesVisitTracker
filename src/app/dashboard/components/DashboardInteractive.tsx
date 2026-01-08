@@ -13,6 +13,7 @@ import UpcomingVisitCard from './UpcomingVisitCard';
 import QuickActionButton from './QuickActionButton';
 import PerformanceChart from './PerformanceChart';
 import TeamMemberCard from './TeamMemberCard';
+import FilterPanel from './FilterPanel';
 
 interface KPIData {
   title: string;
@@ -83,12 +84,14 @@ export default function DashboardInteractive() {
   const [statutActionFilter, setStatutActionFilter] = useState<string>('');
   const [fromFilter, setFromFilter] = useState('');
   const [toFilter, setToFilter] = useState('');
+  const [commercialFilter, setCommercialFilter] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
   const [equipeLoading, setEquipeLoading] = useState(false);
   const [equipeError, setEquipeError] = useState<string | null>(null);
   const [teamMembersState, setTeamMembersState] = useState<TeamMember[] | null>(null);
+  const [commercialList, setCommercialList] = useState<Array<{ id: string; name: string }>>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<'commercial' | 'admin' | 'consultant' | null>(null);
 
@@ -209,6 +212,9 @@ export default function DashboardInteractive() {
         if (toFilter) {
           params.set('to', toFilter);
         }
+        if (commercialFilter) {
+          params.set('commercial_id', commercialFilter);
+        }
 
         const visitesResponse = await fetch(`/api/visites?${params.toString()}`);
         if (!visitesResponse.ok) {
@@ -239,175 +245,58 @@ export default function DashboardInteractive() {
     statutActionFilter,
     fromFilter,
     toFilter,
+    commercialFilter,
   ]);
 
-  // Récupération de l'équipe réelle
+  // Récupération de l'équipe réelle (tous les utilisateurs pour le filtre commercial)
   useEffect(() => {
-    if (!isHydrated) return;
+    if (!isHydrated) {
+      return;
+    }
 
     const fetchEquipe = async () => {
       try {
         setEquipeLoading(true);
         setEquipeError(null);
 
-        const response = await fetch('/api/equipe');
-        if (!response.ok) {
-          console.error("Erreur lors du chargement de l'équipe:", await response.text());
-          setEquipeError("Impossible de charger les membres de l'équipe.");
+        const equipeResponse = await fetch('/api/equipe');
+        if (!equipeResponse.ok) {
+          console.error('Erreur lors du chargement de l\'équipe:', await equipeResponse.text());
+          setEquipeError('Impossible de charger les commerciaux.');
           return;
         }
 
-        const json = await response.json();
-        const equipe = (json?.data ?? []) as EquipeMember[];
-
-        if (!equipe.length) {
-          setTeamMembersState([]);
-          return;
-        }
-
-        const baseAvatars: TeamMember[] = [
-          {
-            id: 1,
-            name: 'Membre 1',
-            role: 'Commercial',
+        const json = await equipeResponse.json();
+        const data = (json?.data ?? []) as EquipeMember[];
+        
+        // Transformer en format pour le dropdown
+        const commercialOptions = data.map((member) => ({
+          id: member.id,
+          name: `${member.prenom || ''} ${member.nom || ''}`.trim() || member.email,
+        }));
+        
+        setCommercialList(commercialOptions);
+        setTeamMembersState(
+          data.map((member) => ({
+            id: member.id as unknown as number,
+            name: `${member.prenom || ''} ${member.nom || ''}`.trim() || member.email,
+            role: member.role || 'commercial',
             avatar: DEFAULT_AVATAR_SRC,
             avatarAlt: DEFAULT_AVATAR_ALT,
             visitsToday: 0,
-            status: 'active',
-          },
-          {
-            id: 2,
-            name: 'Membre 2',
-            role: 'Commercial',
-            avatar: DEFAULT_AVATAR_SRC,
-            avatarAlt: DEFAULT_AVATAR_ALT,
-            visitsToday: 0,
-            status: 'active',
-          },
-          {
-            id: 3,
-            name: 'Membre 3',
-            role: 'Commercial',
-            avatar: DEFAULT_AVATAR_SRC,
-            avatarAlt: DEFAULT_AVATAR_ALT,
-            visitsToday: 0,
-            status: 'away',
-          },
-          {
-            id: 4,
-            name: 'Membre 4',
-            role: 'Commercial',
-            avatar: DEFAULT_AVATAR_SRC,
-            avatarAlt: DEFAULT_AVATAR_ALT,
-            visitsToday: 0,
-            status: 'active',
-          },
-        ];
-
-        const mapped: TeamMember[] = equipe.map((member, index) => {
-          const baseAvatar = baseAvatars[index % baseAvatars.length];
-          const fullName = `${member.prenom ?? ''} ${member.nom ?? ''}`.trim();
-
-          let displayRole: string;
-          if (member.role === 'admin') {
-            displayRole = 'Admin';
-          } else if (member.role === 'consultant') {
-            displayRole = 'Consultant';
-          } else {
-            displayRole = 'Commercial';
-          }
-
-          return {
-            id: index + 1,
-            name: fullName || member.email || 'Utilisateur',
-            role: displayRole,
-            avatar: baseAvatar.avatar,
-            avatarAlt: baseAvatar.avatarAlt,
-            visitsToday: member.total_visites ?? 0,
-            status: 'active',
-          };
-        });
-
-        setTeamMembersState(mapped);
+            status: 'active' as const,
+          }))
+        );
       } catch (error) {
-        console.error("Erreur réseau lors du chargement de l'équipe:", error);
-        setEquipeError("Erreur réseau lors du chargement de l'équipe.");
+        console.error('Erreur réseau lors du chargement de l\'équipe:', error);
+        setEquipeError('Erreur réseau lors du chargement de l\'équipe.');
       } finally {
         setEquipeLoading(false);
       }
     };
 
     fetchEquipe();
-  }, [isHydrated]);
-
-  const kpiData: KPIData[] = [
-    {
-      title: "Visites Totales",
-      value: "1,247",
-      change: 12.5,
-      icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
-      trend: 'up',
-      color: 'from-primary to-secondary'
-    },
-    {
-      title: "Taux de Conversion",
-      value: "68.4%",
-      change: 8.2,
-      icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
-      trend: 'up',
-      color: 'from-secondary to-accent'
-    },
-    {
-      title: "Nouveaux Clients",
-      value: "342",
-      change: 15.3,
-      icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
-      trend: 'up',
-      color: 'from-accent to-primary'
-    },
-    {
-      title: "Revenu Mensuel",
-      value: "€89,420",
-      change: -3.1,
-      icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-      trend: 'down',
-      color: 'from-primary to-accent'
-    }
-  ];
-
-  const getKpiData = (): KPIData[] => {
-    if (!stats) {
-      return kpiData;
-    }
-
-    const total = stats.total_visites || 0;
-    const terminees = stats.visites_terminees || 0;
-    const baseTotal = terminees > 0 ? terminees : total;
-    const tauxConversion =
-      baseTotal > 0 ? (stats.visites_acceptees / baseTotal) * 100 : 0;
-
-    return [
-      {
-        ...kpiData[0],
-        value: total.toLocaleString('fr-FR'),
-      },
-      {
-        ...kpiData[1],
-        title: 'Taux de Conversion',
-        value: `${tauxConversion.toFixed(1)}%`,
-      },
-      {
-        ...kpiData[2],
-        title: 'Montant Potentiel',
-        value: `${stats.montant_total.toLocaleString('fr-FR')} DT`,
-      },
-      {
-        ...kpiData[3],
-        title: 'Probabilité Moyenne',
-        value: `${stats.probabilite_moyenne.toFixed(1)}%`,
-      },
-    ];
-  };
+  }, [isHydrated, currentUserRole]);
 
   const recentActivities: Activity[] = [
     {
@@ -541,12 +430,6 @@ export default function DashboardInteractive() {
               </div>
             </div>
 
-            {/* KPI Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-2">
-              {getKpiData().map((kpi, index) => (
-                <KPICard key={index} {...kpi} />
-              ))}
-            </div>
             {statsLoading && (
               <p className="mb-6 text-sm text-muted-foreground font-body">
                 Chargement de vos statistiques de visites...
@@ -576,84 +459,31 @@ export default function DashboardInteractive() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col w-full gap-3 md:w-auto md:flex-row">
-                    <div className="relative flex-1 min-w-[180px]">
-                      <Icon
-                        name="MagnifyingGlassIcon"
-                        size={18}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                      />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => {
-                          setPage(1);
-                          setSearchTerm(e.target.value);
-                        }}
-                        placeholder="Rechercher une entreprise ou un contact..."
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-muted text-sm border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 text-foreground placeholder:text-muted-foreground"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <select
-                        value={statutVisiteFilter}
-                        onChange={(e) => {
-                          setPage(1);
-                          setStatutVisiteFilter(e.target.value);
-                        }}
-                        className="px-3 py-2 rounded-xl bg-muted text-xs border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 text-foreground min-w-[150px]"
-                      >
-                        <option value="">Tous les statuts de visite</option>
-                        <option value="a_faire">À faire</option>
-                        <option value="en_cours">En cours</option>
-                        <option value="termine">Terminée</option>
-                      </select>
-
-                      <select
-                        value={statutActionFilter}
-                        onChange={(e) => {
-                          setPage(1);
-                          setStatutActionFilter(e.target.value);
-                        }}
-                        className="px-3 py-2 rounded-xl bg-muted text-xs border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 text-foreground min-w-[150px]"
-                      >
-                        <option value="">Tous les résultats</option>
-                        <option value="en_attente">En attente</option>
-                        <option value="accepte">Acceptée</option>
-                        <option value="refuse">Refusée</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 mb-4 md:grid-cols-2">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-muted-foreground whitespace-nowrap">
-                      Date min
-                    </label>
-                    <input
-                      type="date"
-                      value={fromFilter}
-                      onChange={(e) => {
+                  <div className="flex flex-col w-full gap-3 md:w-auto md:flex-row md:items-center">
+                    <FilterPanel
+                      onApply={(filters) => {
                         setPage(1);
-                        setFromFilter(e.target.value);
+                        setSearchTerm(filters.search);
+                        setStatutVisiteFilter(filters.statutVisite);
+                        setStatutActionFilter(filters.statutAction);
+                        setFromFilter(filters.from);
+                        setToFilter(filters.to);
+                        setCommercialFilter(filters.commercial || '');
                       }}
-                      className="flex-1 px-3 py-2 text-xs rounded-xl bg-muted border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 text-foreground"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-muted-foreground whitespace-nowrap">
-                      Date max
-                    </label>
-                    <input
-                      type="date"
-                      value={toFilter}
-                      onChange={(e) => {
-                        setPage(1);
-                        setToFilter(e.target.value);
-                      }}
-                      className="flex-1 px-3 py-2 text-xs rounded-xl bg-muted border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 text-foreground"
+                      searchTerm={searchTerm}
+                      onSearchChange={setSearchTerm}
+                      statutVisiteFilter={statutVisiteFilter}
+                      onStatutVisiteChange={setStatutVisiteFilter}
+                      statutActionFilter={statutActionFilter}
+                      onStatutActionChange={setStatutActionFilter}
+                      fromFilter={fromFilter}
+                      onFromChange={setFromFilter}
+                      toFilter={toFilter}
+                      onToChange={setToFilter}
+                      commercialFilter={commercialFilter}
+                      onCommercialChange={setCommercialFilter}
+                      commercials={commercialList}
+                      isAdmin={currentUserRole === 'admin' || currentUserRole === 'consultant'}
                     />
                   </div>
                 </div>

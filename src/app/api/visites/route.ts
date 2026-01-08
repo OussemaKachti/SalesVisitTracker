@@ -146,6 +146,7 @@ export async function GET(request: Request) {
     const search = searchParams.get('search');
     const fromDate = searchParams.get('from');
     const toDate = searchParams.get('to');
+    const commercialIdFilter = searchParams.get('commercial_id');
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -159,10 +160,24 @@ export async function GET(request: Request) {
       },
     });
 
+    // Récupérer le profil utilisateur pour connaître son rôle
+    const { data: userProfile } = await supabaseDb
+      .from('profiles')
+      .select('role')
+      .eq('id', userData.user.id)
+      .single();
+
+    const userRole = userProfile?.role;
+
     let query = supabaseDb
       .from('visites')
       .select('*', { count: 'exact' })
       .order('date_visite', { ascending: false });
+
+    // Filtrer par commercial si admin/consultant et si un commercial est spécifié
+    if (commercialIdFilter && (userRole === 'admin' || userRole === 'consultant')) {
+      query = query.eq('commercial_id', commercialIdFilter);
+    }
 
     if (statutVisite) {
       query = query.eq('statut_visite', statutVisite);
