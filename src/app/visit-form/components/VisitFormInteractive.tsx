@@ -6,7 +6,8 @@ import {
   Building2, User, Calendar, Target, TrendingUp, 
   CheckCircle2, AlertCircle, ChevronRight, ChevronLeft,
   Sparkles, Phone, Mail, MapPin, DollarSign, Clock,
-  FileText, Tag, Briefcase, Save, Trash2, ArrowLeft
+  FileText, Tag, Briefcase, Save, Trash2, ArrowLeft,
+  Zap, Flame, Heart, Frown
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/ui/ToastContainer';
@@ -517,26 +518,109 @@ export default function ModernVisitForm() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Intérêt du client
+                    <label className="block text-sm font-semibold text-gray-700 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Heart className="w-5 h-5 text-red-500" />
+                        Évaluer l'intérêt du client
+                      </div>
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {['Très élevé', 'Élevé', 'Moyen', 'Faible'].map((level) => (
-                        <button
-                          key={level}
-                          type="button"
-                          onClick={() => setFormData({...formData, interet_client: level})}
-                          className={`
-                            px-4 py-2 rounded-lg font-medium text-sm transition-all
-                            ${formData.interet_client === level
-                              ? 'bg-purple-600 text-white shadow-lg scale-105'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }
-                          `}
-                        >
-                          {level}
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        { 
+                          value: 'Très élevé', 
+                          icon: Flame, 
+                          label: 'Très élevé',
+                          subtitle: 'Client très intéressé',
+                          color: 'from-red-500 to-red-600',
+                          lightColor: 'bg-red-50',
+                          borderColor: 'border-red-200',
+                          textColor: 'text-red-700',
+                          hoverColor: 'hover:bg-red-100'
+                        },
+                        { 
+                          value: 'Élevé', 
+                          icon: Zap, 
+                          label: 'Élevé',
+                          subtitle: 'Intéressé',
+                          color: 'from-orange-500 to-orange-600',
+                          lightColor: 'bg-orange-50',
+                          borderColor: 'border-orange-200',
+                          textColor: 'text-orange-700',
+                          hoverColor: 'hover:bg-orange-100'
+                        },
+                        { 
+                          value: 'Moyen', 
+                          icon: TrendingUp, 
+                          label: 'Moyen',
+                          subtitle: 'Modérément intéressé',
+                          color: 'from-yellow-500 to-yellow-600',
+                          lightColor: 'bg-yellow-50',
+                          borderColor: 'border-yellow-200',
+                          textColor: 'text-yellow-700',
+                          hoverColor: 'hover:bg-yellow-100'
+                        },
+                        { 
+                          value: 'Faible', 
+                          icon: AlertCircle, 
+                          label: 'Faible',
+                          subtitle: 'Peu intéressé',
+                          color: 'from-gray-400 to-gray-500',
+                          lightColor: 'bg-gray-50',
+                          borderColor: 'border-gray-200',
+                          textColor: 'text-gray-600',
+                          hoverColor: 'hover:bg-gray-100'
+                        }
+                      ].map((item) => {
+                        const IconComponent = item.icon;
+                        const isSelected = formData.interet_client === item.value;
+                        return (
+                          <button
+                            key={item.value}
+                            type="button"
+                            onClick={() => setFormData({...formData, interet_client: item.value})}
+                            className={`
+                              relative p-4 rounded-xl border-2 transition-all duration-300 group
+                              ${isSelected 
+                                ? `${item.lightColor} ${item.borderColor} border-2 shadow-lg shadow-${item.textColor.split('-')[1]}-200 scale-105` 
+                                : `bg-white border-gray-200 ${item.hoverColor}`
+                              }
+                            `}
+                          >
+                            {/* Gradient background pour sélection */}
+                            {isSelected && (
+                              <div className={`absolute inset-0 rounded-xl opacity-10 bg-gradient-to-br ${item.color}`}></div>
+                            )}
+                            
+                            <div className="relative z-10 flex flex-col items-center gap-2">
+                              <div className={`
+                                p-2 rounded-lg transition-all duration-300
+                                ${isSelected 
+                                  ? `bg-gradient-to-br ${item.color} text-white shadow-lg` 
+                                  : `${item.lightColor} ${item.textColor}`
+                                }
+                              `}>
+                                <IconComponent className="w-6 h-6" />
+                              </div>
+                              
+                              <div className="text-center">
+                                <div className={`font-semibold text-sm ${isSelected ? item.textColor : 'text-gray-700'}`}>
+                                  {item.label}
+                                </div>
+                                <div className={`text-xs mt-1 ${isSelected ? item.textColor : 'text-gray-500'}`}>
+                                  {item.subtitle}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Checkmark pour sélection */}
+                            {isSelected && (
+                              <div className={`absolute top-2 right-2 p-1 rounded-full bg-gradient-to-br ${item.color} text-white`}>
+                                <CheckCircle2 className="w-4 h-4" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

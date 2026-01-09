@@ -18,6 +18,7 @@ const Header = () => {
   const navigationItems = [
     { name: 'Dashboard', href: '/dashboard', icon: 'ChartBarIcon' },
     { name: 'Visit Form', href: '/visit-form', icon: 'ClipboardDocumentListIcon' },
+    { name: 'Catalogue', href: '/catalogue', icon: 'ShoppingBagIcon' },
     { name: 'Analytics', href: '/analytics-center', icon: 'ChartPieIcon' },
   ];
 

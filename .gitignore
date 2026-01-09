@@ -39,3 +39,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+analyse_produits.js
+PRODUCTS_STRUCTURE.md

@@ -95,3 +95,52 @@ export interface StatsVisites {
 export interface EquipeMember extends Profile {
   total_visites: number
 }
+
+// Types pour le catalogue produits
+export interface FamilleProduire {
+  id: string;
+  nom: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CategorieProduire {
+  id: string;
+  nom: string;
+  famille_id: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Produit {
+  id: string;
+  designation: string;
+  reference: string;
+  famille_id: string;
+  categorie_id: string;
+  frequence?: string;
+  prix_ht: number;
+  prix_ttc: number;
+  tva_pct?: number;
+  description?: string;
+  stock?: number;
+  image_url?: string;
+  images_urls?: string[];
+  actif: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VisiteProduit {
+  id: string;
+  visite_id: string;
+  produit_id: string;
+  quantite: number;
+  prix_unitaire_ht?: number;
+  interet_client?: 'faible' | 'moyen' | 'fort';
+  created_at: string;
+}
