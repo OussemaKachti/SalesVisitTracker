@@ -1,21 +1,24 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import FilterBar from './FilterBar';
 import ProductGrid from './ProductGrid';
 import EmptyState from './EmptyState';
 import ProductModal from './ProductModal';
+import AdvancedFilterPanel from './AdvancedFilterPanel';
 import Icon from '@/components/ui/AppIcon';
-import { Product, ProductFamily } from '../types';
-import { fetchProducts } from '../utils/api';
+import { Product, Category, Family } from '../types';
+import { fetchProducts, fetchFamilies, fetchCategories } from '../utils/api';
 import { useAuth } from '@/hooks/useAuth';
 
 const ITEMS_PER_PAGE = 12;
 
-interface CategoryMapping {
-  id: string;
-  nom: string;
-  famille_id: string;
+interface FilterState {
+  families: string[];
+  categories: string[];
+  priceRange: [number, number];
+  inStock: boolean | null;
+  searchQuery: string;
+  sortBy: 'name' | 'price-asc' | 'price-desc' | 'newest';
 }
 
 export default function ProductCatalogInteractive() {
@@ -24,15 +27,25 @@ export default function ProductCatalogInteractive() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [allCategories, setAllCategories] = useState<{ id: string; nom: string }[]>([]); // Raw categories
-  const [allFamilies, setAllFamilies] = useState<{ id: string; nom: string }[]>([]);
-  const [selectedFamily, setSelectedFamily] = useState<ProductFamily | 'ALL'>('ALL');
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [allFamilies, setAllFamilies] = useState<Family[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    families: [],
+    categories: [],
+    priceRange: [0, 10000],
+    inStock: null,
+    searchQuery: '',
+    sortBy: 'name',
+  });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
 
   // Fetch products and categories from API
   useEffect(() => {
@@ -40,28 +53,25 @@ export default function ProductCatalogInteractive() {
       try {
         setLoading(true);
         
-        // Fetch categories
-        const categoriesRes = await fetch('/api/catalogue/categories');
-        if (categoriesRes.ok) {
-          const categoriesData = await categoriesRes.json();
-          const categories = categoriesData.data || [];
-          setAllCategories(categories);
-        }
+        // Fetch families and categories in parallel
+        const [families, categories, products] = await Promise.all([
+          fetchFamilies(),
+          fetchCategories(),
+          fetchProducts(),
+        ]);
         
-        // Fetch families
-        const familiesRes = await fetch('/api/catalogue/familles');
-        if (familiesRes.ok) {
-          const familiesData = await familiesRes.json();
-          const families = familiesData.data || [];
-          setAllFamilies(families);
-        }
+        console.log('📦 Familles chargées:', families);
+        console.log('📁 Catégories chargées:', categories);
+        console.log('🛒 Produits chargés:', products.length);
         
-        // Fetch products
-        const data = await fetchProducts();
-        setProducts(data);
+        setAllFamilies(families);
+        setAllCategories(categories);
+        setProducts(products);
       } catch (error) {
         console.error('Erreur lors du chargement:', error);
         setProducts([]);
+        setAllFamilies([]);
+        setAllCategories([]);
       } finally {
         setLoading(false);
         setIsHydrated(true);
@@ -71,13 +81,7 @@ export default function ProductCatalogInteractive() {
     loadData();
   }, []);
 
-  // Get the category ID from the name (for filtering)
-  const getCategoryIdFromName = (name: string): string => {
-    const category = allCategories.find(cat => cat.nom === name);
-    return category?.id || '';
-  };
-
-  // Get the category name from the ID (for display)
+  // Get category name from ID
   const getCategoryNameFromId = (id: string): string => {
     const category = allCategories.find(cat => cat.id === id);
     return category?.nom || id;
@@ -139,38 +143,90 @@ export default function ProductCatalogInteractive() {
     setIsModalOpen(true);
   };
 
-  // Filter products based on selections
-  const filteredProducts = useMemo(() => {
-    const selectedCategoryId = selectedCategory === 'ALL' ? 'ALL' : getCategoryIdFromName(selectedCategory);
-    
-    console.log('=== FILTERING ===');
-    console.log('selectedFamily:', selectedFamily);
-    console.log('selectedCategory:', selectedCategory);
-    console.log('selectedCategoryId:', selectedCategoryId);
-    console.log('allCategories:', allCategories);
-    console.log('First product category:', products[0]?.category);
-    
-    const result = (products || [])?.filter((product) => {
-      const matchesFamily = selectedFamily === 'ALL' || product?.family === selectedFamily;
-      const matchesCategory = selectedCategoryId === 'ALL' || product?.category === selectedCategoryId;
-      const matchesSearch = searchQuery === '' || 
-        product?.name?.toLowerCase()?.includes(searchQuery?.toLowerCase()) ||
-        product?.reference?.toLowerCase()?.includes(searchQuery?.toLowerCase()) ||
-        product?.description?.toLowerCase()?.includes(searchQuery?.toLowerCase());
-      const matchesPrice = product?.priceTTC >= priceRange[0] && product?.priceTTC <= priceRange[1];
-      
-      return matchesFamily && matchesCategory && matchesSearch && matchesPrice;
-    });
-    
-    console.log('Filtered results:', result.length);
-    return result;
-  }, [products, selectedFamily, selectedCategory, searchQuery, priceRange, allCategories]);
+  // Apply filters and sorting
+  const filteredAndSortedProducts = useMemo(() => {
+    let filtered = [...products];
 
-  // Pagination
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+    // 1. Filter by search query
+    if (filters.searchQuery.trim()) {
+      const query = filters.searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(
+        (product) =>
+          product.name.toLowerCase().includes(query) ||
+          product.reference.toLowerCase().includes(query) ||
+          product.description.toLowerCase().includes(query)
+      );
+    }
+
+    // 2. Filter by families
+    if (filters.families.length > 0) {
+      filtered = filtered.filter((product) =>
+        filters.families.some((familyId) => {
+          // Product.family peut être un nom (SERRURES, READER, ETIQUETTES)
+          // On doit le comparer avec le nom de la famille
+          const family = allFamilies.find((f) => f.id === familyId);
+          if (!family) return false;
+          
+          // Comparer le nom de la famille avec product.family
+          const productFamilyName = product.family.toUpperCase();
+          const familyName = family.nom.toUpperCase();
+          
+          return productFamilyName === familyName || 
+                 productFamilyName.includes(familyName) || 
+                 familyName.includes(productFamilyName);
+        })
+      );
+    }
+
+    // 3. Filter by categories
+    if (filters.categories.length > 0) {
+      filtered = filtered.filter((product) =>
+        filters.categories.some((categoryId) => {
+          // Product.category contient l'UUID de la catégorie (categorie_id)
+          // On compare directement avec l'ID sélectionné
+          return product.category === categoryId;
+        })
+      );
+    }
+
+    // 4. Filter by price range
+    filtered = filtered.filter(
+      (product) =>
+        product.priceTTC >= filters.priceRange[0] &&
+        product.priceTTC <= filters.priceRange[1]
+    );
+
+    // 5. Filter by stock status
+    if (filters.inStock !== null) {
+      filtered = filtered.filter((product) => product.inStock === filters.inStock);
+    }
+
+    // 6. Apply sorting
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'price-asc':
+          return a.priceTTC - b.priceTTC;
+        case 'price-desc':
+          return b.priceTTC - a.priceTTC;
+        case 'newest':
+          // Assuming products with 'Nouveau' badge or more recent are first
+          if (a.badge === 'Nouveau' && b.badge !== 'Nouveau') return -1;
+          if (a.badge !== 'Nouveau' && b.badge === 'Nouveau') return 1;
+          return 0;
+        case 'name':
+        default:
+          return a.name.localeCompare(b.name, 'fr');
+      }
+    });
+
+    return filtered;
+  }, [products, filters, allFamilies, allCategories]);
+
+  // Pagination with filtered products
+  const totalPages = Math.ceil(filteredAndSortedProducts.length / ITEMS_PER_PAGE);
   const paginatedProducts = useMemo(() => {
     const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-    const paginated = filteredProducts.slice(startIdx, startIdx + ITEMS_PER_PAGE);
+    const paginated = filteredAndSortedProducts.slice(startIdx, startIdx + ITEMS_PER_PAGE);
     
     // Double-check for duplicates before rendering
     const seen = new Set<string>();
@@ -181,31 +237,7 @@ export default function ProductCatalogInteractive() {
       seen.add(product.id);
       return true;
     });
-  }, [filteredProducts, currentPage]);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedFamily, selectedCategory, searchQuery]);
-
-  // Get unique categories for selected family - using names not IDs
-  const availableCategories = useMemo(() => {
-    console.log('Calculating availableCategories with allCategories:', allCategories);
-    
-    // Just return all category names from the fetched data
-    const names = allCategories
-      .map(cat => cat.nom)
-      .filter(nom => nom && nom !== 'Non catégorisé')
-      .sort();
-    
-    console.log('Available category names:', names);
-    return names;
-  }, [allCategories]);
-
-  // Reset category when family changes
-  useEffect(() => {
-    setSelectedCategory('ALL');
-  }, [selectedFamily]);
+  }, [filteredAndSortedProducts, currentPage]);
 
   if (!isHydrated || loading) {
     return (
@@ -229,6 +261,30 @@ export default function ProductCatalogInteractive() {
             <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground flex-1">
               Catalogue Produits
             </h1>
+            <div className="flex items-center gap-3">
+              {/* Filter Button */}
+              <button
+                onClick={() => setIsFilterPanelOpen(true)}
+                className="relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-cta text-sm font-semibold transition-all duration-200 shadow-lg whitespace-nowrap group"
+              >
+                <Icon name="AdjustmentsHorizontalIcon" size={18} />
+                <span>Filtres</span>
+                {(filters.families.length > 0 ||
+                  filters.categories.length > 0 ||
+                  filters.searchQuery ||
+                  filters.priceRange[0] !== 0 ||
+                  filters.priceRange[1] !== 10000 ||
+                  filters.inStock !== null) && (
+                  <span className="absolute -top-2 -right-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
+                    {filters.families.length +
+                      filters.categories.length +
+                      (filters.searchQuery ? 1 : 0) +
+                      (filters.priceRange[0] !== 0 || filters.priceRange[1] !== 10000 ? 1 : 0) +
+                      (filters.inStock !== null ? 1 : 0)}
+                  </span>
+                )}
+              </button>
+            </div>
             {isAdmin && (
               <button
                 onClick={() => {
@@ -243,19 +299,6 @@ export default function ProductCatalogInteractive() {
             )}
           </div>
         </div>
-        
-        <FilterBar
-          selectedFamily={selectedFamily}
-          selectedCategory={selectedCategory}
-          searchQuery={searchQuery}
-          priceRange={priceRange}
-          availableCategories={availableCategories}
-          resultCount={filteredProducts?.length}
-          onFamilyChange={setSelectedFamily}
-          onCategoryChange={setSelectedCategory}
-          onSearchChange={setSearchQuery}
-          onPriceChange={setPriceRange}
-        />
 
         <main className="px-4 lg:px-8 pb-16">
           <div className="max-w-7xl mx-auto">
@@ -336,14 +379,14 @@ export default function ProductCatalogInteractive() {
                     {/* Results Summary - Subtle */}
                     <div className="text-center">
                       <p className="text-xs text-gray-500">
-                        Affichage <span className="font-semibold text-gray-700">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>-<span className="font-semibold text-gray-700">{Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)}</span> sur <span className="font-semibold text-gray-700">{filteredProducts.length}</span>
+                        Affichage <span className="font-semibold text-gray-700">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span>-<span className="font-semibold text-gray-700">{Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedProducts.length)}</span> sur <span className="font-semibold text-gray-700">{filteredAndSortedProducts.length}</span>
                       </p>
                     </div>
                   </div>
                 )}
               </>
             ) : (
-              <EmptyState searchQuery={searchQuery} />
+              <EmptyState searchQuery={filters.searchQuery} />
             )}
           </div>
         </main>
@@ -360,6 +403,16 @@ export default function ProductCatalogInteractive() {
           setEditingProduct(null);
         }}
         onSave={handleSaveProduct}
+      />
+
+      {/* Advanced Filter Panel */}
+      <AdvancedFilterPanel
+        isOpen={isFilterPanelOpen}
+        onClose={() => setIsFilterPanelOpen(false)}
+        families={allFamilies}
+        categories={allCategories}
+        filters={filters}
+        onFiltersChange={setFilters}
       />
     </div>
   );

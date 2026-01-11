@@ -9,7 +9,7 @@ interface FilterBarProps {
   selectedCategory: string;
   searchQuery: string;
   priceRange: [number, number];
-  availableCategories: string[];
+  availableCategories: Array<{ nom: string; id: string; count: number }>;
   resultCount: number;
   onFamilyChange: (family: ProductFamily | 'ALL') => void;
   onCategoryChange: (category: string) => void;
@@ -155,18 +155,42 @@ export default function FilterBar({
               <label className="block text-xs font-cta font-semibold text-gray-900">
                 Catégorie
               </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => onCategoryChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white border-2 border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 text-gray-900"
-              >
-                <option value="ALL">Toutes</option>
-                {availableCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                <button
+                  onClick={() => onCategoryChange('ALL')}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-all duration-300 ${
+                    selectedCategory === 'ALL'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  }`}
+                >
+                  Toutes
+                </button>
+                {availableCategories.length > 0 ? (
+                  availableCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => onCategoryChange(category.nom)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg font-body text-sm transition-all duration-300 flex justify-between items-center ${
+                        selectedCategory === category.nom
+                          ? 'bg-gray-800 text-white'
+                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span>{category.nom}</span>
+                      <span className={`text-xs font-semibold ${
+                        selectedCategory === category.nom ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
+                        ({category.count})
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center py-3 text-gray-500 text-sm">
+                    Aucune catégorie disponible
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Prix */}

@@ -1,4 +1,4 @@
-import { Product, ProductFamily } from '../types';
+import { Product, ProductFamily, Category, Family } from '../types';
 
 // Cache global pour les catégories
 let categoryCache: Record<string, string> = {};
@@ -57,6 +57,46 @@ function getCategoryName(categorieId: string | undefined): string {
   
   // Sinon retourner l'ID (il sera remplacé une fois que les catégories sont chargées)
   return categorieId;
+}
+
+/**
+ * Récupère toutes les familles de produits
+ */
+export async function fetchFamilies(): Promise<Family[]> {
+  try {
+    const response = await fetch('/api/catalogue/familles');
+    
+    if (!response.ok) {
+      throw new Error(`Erreur API: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Erreur lors du chargement des familles:', error);
+    throw error;
+  }
+}
+
+/**
+ * Récupère les catégories de produits
+ * @param familleId - Filtre optionnel par famille
+ */
+export async function fetchCategories(familleId?: string): Promise<Category[]> {
+  try {
+    const params = familleId ? `?famille_id=${familleId}` : '';
+    const response = await fetch(`/api/catalogue/categories${params}`);
+    
+    if (!response.ok) {
+      throw new Error(`Erreur API: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error('Erreur lors du chargement des catégories:', error);
+    throw error;
+  }
 }
 
 /**
