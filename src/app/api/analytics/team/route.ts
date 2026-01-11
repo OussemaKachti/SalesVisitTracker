@@ -1,5 +1,5 @@
+import { getAuthenticatedClient, attachAuthCookies } from '@/utils/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
@@ -9,6 +9,7 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Missing Supabase configuration');
 }
 
+// remove global supabase client creation if not used elsewhere, but maybe keep it
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 interface TeamPerformance {
@@ -23,36 +24,14 @@ interface TeamPerformance {
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const { supabase: supabaseDb, user, errorResponse, newTokens } = await getAuthenticatedClient();
 
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Utilisateur non authentifié.' },
-        { status: 401 }
-      );
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-
-    if (userError || !userData?.user) {
-      return NextResponse.json(
-        { error: 'Impossible de récupérer l\'utilisateur courant.' },
-        { status: 401 }
-      );
+    if (errorResponse || !supabaseDb || !user) {
+      return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const societe = searchParams.get('societe');
-
-    // Client authentifié
-    const supabaseDb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    });
 
     // Fetch all commercials
     const { data: profiles, error: profilesError } = await supabaseDb
@@ -119,7 +98,10 @@ export async function GET(request: Request) {
     teamData.sort((a, b) => b.performance - a.performance);
 
     console.log('Team data:', teamData, 'Total profiles:', profiles?.length || 0);
-    return NextResponse.json({ data: teamData });
+
+    const response = NextResponse.json({ data: teamData });
+    if (newTokens) attachAuthCookies(response, newTokens);
+    return response;
   } catch (error) {
     console.error('Erreur API analytics/team:', error);
     return NextResponse.json(

@@ -1,53 +1,19 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    'Les variables NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY doivent être définies.'
-  );
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { getAuthenticatedClient, attachAuthCookies } from '@/utils/supabase';
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const { supabase: supabaseDb, user, errorResponse, newTokens } = await getAuthenticatedClient();
 
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Utilisateur non authentifié.' },
-        { status: 401 }
-      );
+    if (errorResponse || !supabaseDb || !user) {
+      return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-
-    if (userError || !userData?.user) {
-      return NextResponse.json(
-        { error: "Impossible de récupérer l'utilisateur courant." },
-        { status: 401 }
-      );
-    }
-
-    // Créer un client Supabase avec le token de l'utilisateur pour respecter les RLS
-    const supabaseDb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    });
 
     // Récupérer le profil de l'utilisateur connecté
     const { data: profileData, error: profileError } = await supabaseDb
       .from('profiles')
       .select('id, email, nom, prenom, role, telephone')
-      .eq('id', userData.user.id)
+      .eq('id', user.id)
       .single();
 
     if (profileError) {
@@ -58,11 +24,67 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(profileData, { status: 200 });
+    const response = NextResponse.json(profileData, { status: 200 });
+
+    if (newTokens) {
+      attachAuthCookies(response, newTokens);
+    }
+
+    return response;
   } catch (error) {
     console.error('Erreur inattendue lors de la récupération du profil:', error);
     return NextResponse.json(
       { error: 'Erreur interne du serveur.' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const { supabase: supabaseDb, user, errorResponse, newTokens } = await getAuthenticatedClient();
+
+    if (errorResponse || !supabaseDb || !user) {
+      return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { firstName, lastName, phone } = body;
+
+    // Validation basique
+    if (!firstName || !lastName) {
+       return NextResponse.json({ error: 'Le prénom et le nom sont requis.' }, { status: 400 });
+    }
+
+    const { error: updateError } = await supabaseDb
+      .from('profiles')
+      .update({
+        prenom: firstName,
+        nom: lastName,
+        telephone: phone
+      })
+      .eq('id', user.id);
+
+    if (updateError) {
+      console.error('Erreur update profil:', updateError);
+      return NextResponse.json(
+        { error: 'Erreur lors de la mise à jour du profil.' },
+        { status: 500 }
+      );
+    }
+
+    const response = NextResponse.json({ success: true }, { status: 200 });
+
+    if (newTokens) {
+      attachAuthCookies(response, newTokens);
+    }
+
+    return response;
+
+  } catch (error) {
+    console.error('Erreur inattendue PUT profile:', error);
+     return NextResponse.json(
+      { error: 'Erreur interne.' },
       { status: 500 }
     );
   }

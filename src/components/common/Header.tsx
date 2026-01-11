@@ -170,7 +170,16 @@ const Header = () => {
             </button>
 
             {isProfileMenuOpen && (
-              <div className="absolute right-0 mt-2 w-40 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-1 text-sm">
+              <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg py-1 text-sm z-50">
+                <Link
+                  href="/profile"
+                  onClick={() => setIsProfileMenuOpen(false)}
+                  className="w-full px-3 py-2 text-left text-white/80 hover:text-white hover:bg-gray-800 transition-smooth flex items-center gap-2"
+                >
+                  <Icon name="UserIcon" size={18} />
+                  <span>Mon Profil</span>
+                </Link>
+                <div className="h-px bg-gray-700 my-1 mx-2"></div>
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -211,7 +220,11 @@ const Header = () => {
             ))}
 
             <div className="pt-4 border-t border-border/40 space-y-2">
-              <div className="flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-cta font-medium text-white/80">
+              <Link 
+                href="/profile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between w-full px-4 py-3 rounded-lg text-sm font-cta font-medium text-white/80 hover:bg-gray-800 transition-smooth"
+              >
                 <div className="flex items-center space-x-3">
                   <div className="w-9 h-9 bg-gradient-to-br from-secondary to-accent rounded-full flex items-center justify-center text-sm font-display font-semibold text-white">
                     {userInitials}
@@ -221,7 +234,7 @@ const Header = () => {
                     <p className="text-xs text-white/80">{userRole}</p>
                   </div>
                 </div>
-              </div>
+              </Link>
 
               <button
                 type="button"

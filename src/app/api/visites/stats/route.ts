@@ -1,38 +1,13 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
 import type { StatsVisites } from '@/types/database';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    'Les variables NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY doivent être définies.'
-  );
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { getAuthenticatedClient, attachAuthCookies } from '@/utils/supabase';
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const { supabase: supabaseDb, user, errorResponse, newTokens } = await getAuthenticatedClient();
 
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Utilisateur non authentifié.' },
-        { status: 401 }
-      );
-    }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-
-    if (userError || !userData?.user) {
-      return NextResponse.json(
-        { error: "Impossible de récupérer l'utilisateur courant." },
-        { status: 401 }
-      );
+    if (errorResponse || !supabaseDb || !user) {
+      return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const url = new URL(request.url);
@@ -41,13 +16,14 @@ export async function GET(request: Request) {
     const fromDate = searchParams.get('from');
     const toDate = searchParams.get('to');
 
-    let baseQuery = supabase
+    // Use authenticated client
+    let baseQuery = supabaseDb
       .from('visites')
       .select(
         'id, statut_visite, statut_action, montant, probabilite',
         { count: 'exact' }
       )
-      .eq('commercial_id', userData.user.id);
+      .eq('commercial_id', user.id);
 
     if (fromDate) {
       baseQuery = baseQuery.gte('date_visite', fromDate);
@@ -79,7 +55,9 @@ export async function GET(request: Request) {
     };
 
     if (!data || data.length === 0) {
-      return NextResponse.json(stats, { status: 200 });
+      const response = NextResponse.json(stats, { status: 200 });
+      if (newTokens) attachAuthCookies(response, newTokens);
+      return response;
     }
 
     let sommeProbabilite = 0;
@@ -108,7 +86,9 @@ export async function GET(request: Request) {
     stats.probabilite_moyenne =
       nombreProbabilites > 0 ? Number((sommeProbabilite / nombreProbabilites).toFixed(1)) : 0;
 
-    return NextResponse.json(stats, { status: 200 });
+    const response = NextResponse.json(stats, { status: 200 });
+    if (newTokens) attachAuthCookies(response, newTokens);
+    return response;
   } catch (error) {
     console.error('Erreur inattendue lors du calcul des statistiques de visites:', error);
     return NextResponse.json(

@@ -1,48 +1,14 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
 import type { Profile, EquipeMember } from '@/types/database';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    'Les variables NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY doivent être définies.'
-  );
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { getAuthenticatedClient, attachAuthCookies } from '@/utils/supabase';
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = cookies();
-    const accessToken = cookieStore.get('sb-access-token')?.value;
+    const { supabase: supabaseDb, errorResponse, newTokens } = await getAuthenticatedClient();
 
-    if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Utilisateur non authentifié.' },
-        { status: 401 }
-      );
+    if (errorResponse || !supabaseDb) {
+      return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
-
-    if (userError || !userData?.user) {
-      return NextResponse.json(
-        { error: "Impossible de récupérer l'utilisateur courant." },
-        { status: 401 }
-      );
-    }
-
-    // Client authentifié pour appliquer correctement les policies RLS
-    const supabaseDb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    });
 
     const { data: profilesData, error: profilesError } = await supabaseDb
       .from('profiles')
@@ -82,7 +48,13 @@ export async function GET(request: Request) {
       total_visites: counts[profile.id] ?? 0,
     }));
 
-    return NextResponse.json({ data: equipe }, { status: 200 });
+    const response = NextResponse.json({ data: equipe }, { status: 200 });
+
+    if (newTokens) {
+      attachAuthCookies(response, newTokens);
+    }
+
+    return response;
   } catch (error) {
     console.error("Erreur inattendue lors de la récupération de l'équipe:", error);
     return NextResponse.json(

@@ -52,6 +52,7 @@ interface TeamMember {
   avatarAlt: string;
   visitsToday: number;
   status: 'active' | 'away' | 'offline';
+  mustChangePassword?: boolean;
 }
 
 interface ChartDataPoint {
@@ -720,47 +721,78 @@ export default function DashboardInteractive() {
                 )}
               </div>
 
-              {/* Bloc inférieur : Activité récente & Équipe côte à côte */}
-              <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                {/* Activité Récente */}
-                <div className="bg-card rounded-2xl p-6 shadow-elevated border border-border">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-display font-bold text-foreground">
-                      Activité Récente
-                    </h2>
-                    <button className="p-2 rounded-lg hover:bg-muted transition-smooth">
-                      <Icon name="ArrowPathIcon" size={20} />
+              {/* Bloc inférieur : Widgets "Dashboard" Modernes (Hauteur Fixe & Contenu Dense) */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
+                
+                {/* Widget: Activité Récente (Style Timeline Scrollable) */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm h-[420px] flex flex-col overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                        <Icon name="ClockIcon" size={18} />
+                      </div>
+                      <h2 className="text-base font-bold text-slate-800">Activité Récente</h2>
+                    </div>
+                    <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Icon name="ArrowPathIcon" size={18} />
                     </button>
                   </div>
-                  <div className="space-y-2">
-                    {recentActivities.map((activity) => (
-                      <ActivityItem key={activity.id} {...activity} />
-                    ))}
+                  
+                  <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent p-0">
+                    <div className="p-5 pt-6">
+                      {recentActivities.map((activity) => (
+                        <ActivityItem key={activity.id} {...activity} />
+                      ))}
+                      {/* Decorative empty state if needed */}
+                      <div className="pl-6 pt-2 pb-4">
+                        <div className="text-xs text-slate-400 italic flex items-center gap-2">
+                           <div className="w-1.5 h-1.5 rounded-full bg-slate-200"></div>
+                           Fin de l'historique récent
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Équipe */}
-                <div className="bg-card rounded-2xl p-6 shadow-elevated border border-border">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-display font-bold text-foreground">Équipe</h2>
-                    <button className="text-sm font-cta font-semibold text-primary hover:text-secondary transition-smooth">
-                      Voir Tout
+                {/* Widget: Équipe (Grille Compacte Scrollable) */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm h-[420px] flex flex-col overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div className="flex items-center gap-2">
+                       <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <Icon name="UsersIcon" size={18} />
+                      </div>
+                      <h2 className="text-base font-bold text-slate-800">Mon Équipe</h2>
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200">
+                        {teamMembersState?.length || teamMembers.length}
+                      </span>
+                    </div>
+                    <button className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline">
+                      Voir tout
                     </button>
                   </div>
-                  <div className="space-y-4">
-                    {equipeLoading && (
-                      <p className="text-xs text-muted-foreground font-body">
-                        Chargement de l'équipe...
-                      </p>
-                    )}
-                    {equipeError && !equipeLoading && (
-                      <p className="text-xs text-destructive font-body">
-                        {equipeError}
-                      </p>
-                    )}
-                    {(teamMembersState ?? teamMembers).map((member) => (
-                      <TeamMemberCard key={member.id} {...member} />
-                    ))}
+
+                  <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent bg-slate-50/30">
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 content-start">
+                      {equipeLoading && (
+                        <div className="col-span-2 py-8 text-center">
+                          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          <p className="mt-2 text-xs text-slate-500">Chargement de l'équipe...</p>
+                        </div>
+                      )}
+                      
+                      {equipeError && !equipeLoading && (
+                        <div className="col-span-2 py-8 text-center text-red-500 text-sm">
+                           {equipeError}
+                        </div>
+                      )}
+                      
+                      {/* Carte Membre - Version Compacte via Grid */}
+                      {(!equipeLoading && !equipeError) && (teamMembersState ?? teamMembers).map((member) => (
+                        <div key={member.id} className="h-full">
+                           <TeamMemberCard {...member} />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
