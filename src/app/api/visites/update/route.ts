@@ -144,3 +144,160 @@ export async function PUT(request: Request) {
     );
   }
 }
+
+/**
+ * PATCH /api/visites/update
+ * Met à jour uniquement le statut_visite ou statut_action d'une visite
+ * Utilisé pour les changements rapides depuis le dashboard
+ */
+export async function PATCH(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const visiteId = searchParams.get('id');
+
+    if (!visiteId) {
+      return NextResponse.json(
+        { error: 'ID de visite manquant' },
+        { status: 400 }
+      );
+    }
+
+    const cookieStore = cookies();
+    const accessToken = cookieStore.get('sb-access-token')?.value;
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: 'Utilisateur non authentifié' },
+        { status: 401 }
+      );
+    }
+
+    const { data: userData, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !userData?.user) {
+      return NextResponse.json(
+        { error: 'Non authentifié' },
+        { status: 401 }
+      );
+    }
+
+    const user = userData.user;
+
+    // Créer un client Supabase authentifié avec le token
+    const supabaseDb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    });
+
+    // Récupérer le profil de l'utilisateur pour vérifier son rôle
+    const { data: profile, error: profileError } = await supabaseDb
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('Erreur profil:', profileError);
+      return NextResponse.json(
+        { error: 'Profil utilisateur non trouvé' },
+        { status: 404 }
+      );
+    }
+
+    // Récupérer la visite pour vérifier les permissions
+    const { data: visite, error: visiteError } = await supabaseDb
+      .from('visites')
+      .select('commercial_id')
+      .eq('id', visiteId)
+      .single();
+
+    if (visiteError || !visite) {
+      console.error('Erreur visite:', visiteError);
+      return NextResponse.json(
+        { error: 'Visite non trouvée' },
+        { status: 404 }
+      );
+    }
+
+    // Vérifier les permissions : admin ou propriétaire
+    const isAdmin = profile.role === 'admin';
+    const isOwner = visite.commercial_id === user.id;
+
+    if (!isAdmin && !isOwner) {
+      return NextResponse.json(
+        { error: 'Vous n\'avez pas la permission de modifier cette visite' },
+        { status: 403 }
+      );
+    }
+
+    // Récupérer les données du body
+    const body = await request.json();
+    const { statut_visite, statut_action } = body;
+
+    // Valider les données
+    const validStatutVisite = ['a_faire', 'en_cours', 'termine'];
+    const validStatutAction = ['en_attente', 'accepte', 'refuse'];
+
+    if (statut_visite && !validStatutVisite.includes(statut_visite)) {
+      return NextResponse.json(
+        { error: 'Statut de visite invalide' },
+        { status: 400 }
+      );
+    }
+
+    if (statut_action && !validStatutAction.includes(statut_action)) {
+      return NextResponse.json(
+        { error: 'Statut d\'action invalide' },
+        { status: 400 }
+      );
+    }
+
+    // Préparer les données de mise à jour
+    const updateData: any = { updated_at: new Date().toISOString() };
+    if (statut_visite !== undefined) {
+      updateData.statut_visite = statut_visite;
+    }
+    if (statut_action !== undefined) {
+      updateData.statut_action = statut_action;
+    }
+
+    if (Object.keys(updateData).length === 1) { // Seulement updated_at
+      return NextResponse.json(
+        { error: 'Aucune donnée à mettre à jour' },
+        { status: 400 }
+      );
+    }
+
+    // Mettre à jour la visite
+    const { data: updatedVisite, error: updateError } = await supabaseDb
+      .from('visites')
+      .update(updateData)
+      .eq('id', visiteId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Erreur lors de la mise à jour de la visite:', updateError);
+      return NextResponse.json(
+        { error: 'Erreur lors de la mise à jour de la visite' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: updatedVisite,
+      message: 'Visite mise à jour avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur dans PATCH /api/visites/update:', error);
+    return NextResponse.json(
+      { error: 'Erreur serveur interne' },
+      { status: 500 }
+    );
+  }
+}

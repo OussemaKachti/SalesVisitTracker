@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Icon from '../../../components/ui/AppIcon';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/ui/ToastContainer';
-import type { StatsVisites, Visite, EquipeMember } from '@/types/database';
+import type { StatsVisites, Visite, EquipeMember, StatutVisite, StatutAction } from '@/types/database';
 
 import KPICard from './KPICard';
 import ActivityItem from './ActivityItem';
@@ -70,6 +70,8 @@ export default function DashboardInteractive() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [statusMenuOpen, setStatusMenuOpen] = useState<string | null>(null);
+  const [resultMenuOpen, setResultMenuOpen] = useState<string | null>(null);
 
   const [stats, setStats] = useState<StatsVisites | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -154,6 +156,54 @@ export default function DashboardInteractive() {
       return true;
     }
     return visite.commercial_id === currentUserId;
+  };
+
+  // Handle status change
+  const handleStatusChange = async (visiteId: string, newStatus: StatutVisite) => {
+    try {
+      const response = await fetch(`/api/visites/update?id=${visiteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut_visite: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la mise à jour du statut');
+      }
+
+      // Refresh visits
+      setVisites(prev => prev.map(v => 
+        v.id === visiteId ? { ...v, statut_visite: newStatus } : v
+      ));
+      success('Statut mis à jour avec succès');
+      setStatusMenuOpen(null);
+    } catch (err) {
+      error('Erreur lors de la mise à jour du statut');
+    }
+  };
+
+  // Handle result change
+  const handleResultChange = async (visiteId: string, newResult: StatutAction) => {
+    try {
+      const response = await fetch(`/api/visites/update?id=${visiteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut_action: newResult }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors de la mise à jour du résultat');
+      }
+
+      // Refresh visits
+      setVisites(prev => prev.map(v => 
+        v.id === visiteId ? { ...v, statut_action: newResult } : v
+      ));
+      success('Résultat mis à jour avec succès');
+      setResultMenuOpen(null);
+    } catch (err) {
+      error('Erreur lors de la mise à jour du résultat');
+    }
   };
 
   // Récupération des statistiques globales
@@ -577,9 +627,6 @@ export default function DashboardInteractive() {
                                 <p className="text-xs md:text-sm font-cta font-semibold text-foreground truncate">
                                   {visite.entreprise}
                                 </p>
-                                <p className="text-[11px] text-muted-foreground truncate">
-                                  {visite.objet_visite}
-                                </p>
                               </td>
                               <td className="px-3 py-3 md:px-4 max-w-[140px] md:max-w-[180px]">
                                 <p className="text-xs md:text-sm text-foreground truncate">
@@ -590,12 +637,28 @@ export default function DashboardInteractive() {
                                     {visite.fonction_poste}
                                   </p>
                                 )}
-                              </td>                              <td className="px-3 py-3 md:px-4 max-w-[200px] hidden md:table-cell">
-                                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-12">
-                                  <p className="text-xs text-foreground whitespace-nowrap pr-2">
-                                    {visite.objet_visite || '—'}
-                                  </p>
-                                </div>
+                              </td>                              <td className="px-3 py-3 md:px-4 max-w-[220px] hidden md:table-cell">
+                                {visite.objet_visite ? (
+                                  <div className="group relative">
+                                    <div className="flex items-start gap-2 p-2 rounded-lg bg-slate-50/50 border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all">
+                                      <Icon name="DocumentTextIcon" size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                                      <p className="text-xs text-slate-700 line-clamp-2 leading-relaxed">
+                                        {visite.objet_visite}
+                                      </p>
+                                    </div>
+                                    {/* Tooltip on hover for long text */}
+                                    {visite.objet_visite.length > 50 && (
+                                      <div className="absolute left-0 top-full mt-2 z-50 hidden group-hover:block">
+                                        <div className="bg-slate-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl max-w-xs">
+                                          <p className="leading-relaxed">{visite.objet_visite}</p>
+                                          <div className="absolute -top-1 left-4 w-2 h-2 bg-slate-900 transform rotate-45"></div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-400 italic">—</span>
+                                )}
                               </td>                              <td className="px-3 py-3 md:px-4 text-[11px] md:text-xs text-muted-foreground hidden lg:table-cell">
                                 {visite.commercial_name || '—'}
                               </td>
@@ -603,38 +666,124 @@ export default function DashboardInteractive() {
                                 {visite.ville || '—'}
                               </td>
                               <td className="px-3 py-3 md:px-4">
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
-                                    visite.statut_visite === 'a_faire'
-                                      ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                                      : visite.statut_visite === 'en_cours'
-                                      ? 'bg-primary/15 text-primary border border-primary/30'
-                                      : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                                  }`}
-                                >
-                                  {visite.statut_visite === 'a_faire'
-                                    ? 'À faire'
-                                    : visite.statut_visite === 'en_cours'
-                                    ? 'En cours'
-                                    : 'Terminée'}
-                                </span>
+                                {canManage ? (
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => setStatusMenuOpen(statusMenuOpen === visite.id ? null : visite.id)}
+                                      className={`group inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] md:text-[11px] font-cta transition-all hover:shadow-md ${
+                                        visite.statut_visite === 'a_faire'
+                                          ? 'bg-amber-500/15 text-amber-600 border border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-500/50'
+                                          : visite.statut_visite === 'en_cours'
+                                          ? 'bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 hover:border-primary/50'
+                                          : 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/25 hover:border-emerald-500/50'
+                                      }`}
+                                    >
+                                      {visite.statut_visite === 'a_faire' ? 'À faire' : visite.statut_visite === 'en_cours' ? 'En cours' : 'Terminée'}
+                                      <Icon name="ChevronDownIcon" size={12} className="opacity-50 group-hover:opacity-100" />
+                                    </button>
+                                    
+                                    {statusMenuOpen === visite.id && (
+                                      <>
+                                        <div className="fixed inset-0 z-[100]" onClick={() => setStatusMenuOpen(null)} />
+                                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-[101] w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 animate-fade-in">
+                                          <button
+                                            onClick={() => handleStatusChange(visite.id, 'a_faire')}
+                                            className="w-full px-3 py-2 text-left text-xs hover:bg-amber-50 transition-colors flex items-center gap-2"
+                                          >
+                                            <div className="w-2 h-2 rounded-full bg-amber-500" />
+                                            <span className="text-amber-700 font-semibold">À faire</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handleStatusChange(visite.id, 'en_cours')}
+                                            className="w-full px-3 py-2 text-left text-xs hover:bg-blue-50 transition-colors flex items-center gap-2"
+                                          >
+                                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                            <span className="text-blue-700 font-semibold">En cours</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handleStatusChange(visite.id, 'termine')}
+                                            className="w-full px-3 py-2 text-left text-xs hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                          >
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                            <span className="text-emerald-700 font-semibold">Terminée</span>
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
+                                      visite.statut_visite === 'a_faire'
+                                        ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                                        : visite.statut_visite === 'en_cours'
+                                        ? 'bg-primary/15 text-primary border border-primary/30'
+                                        : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                                    }`}
+                                  >
+                                    {visite.statut_visite === 'a_faire' ? 'À faire' : visite.statut_visite === 'en_cours' ? 'En cours' : 'Terminée'}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-3 py-3 md:px-4 hidden sm:table-cell">
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
-                                    visite.statut_action === 'en_attente'
-                                      ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
-                                      : visite.statut_action === 'accepte'
-                                      ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                                      : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
-                                  }`}
-                                >
-                                  {visite.statut_action === 'en_attente'
-                                    ? 'En attente'
-                                    : visite.statut_action === 'accepte'
-                                    ? 'Acceptée'
-                                    : 'Refusée'}
-                                </span>
+                                {canManage ? (
+                                  <div className="relative">
+                                    <button
+                                      onClick={() => setResultMenuOpen(resultMenuOpen === visite.id ? null : visite.id)}
+                                      className={`group inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] md:text-[11px] font-cta transition-all hover:shadow-md ${
+                                        visite.statut_action === 'en_attente'
+                                          ? 'bg-slate-500/15 text-slate-500 border border-slate-500/30 hover:bg-slate-500/25 hover:border-slate-500/50'
+                                          : visite.statut_action === 'accepte'
+                                          ? 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/25 hover:border-emerald-500/50'
+                                          : 'bg-rose-500/15 text-rose-600 border border-rose-500/30 hover:bg-rose-500/25 hover:border-rose-500/50'
+                                      }`}
+                                    >
+                                      {visite.statut_action === 'en_attente' ? 'En attente' : visite.statut_action === 'accepte' ? 'Acceptée' : 'Refusée'}
+                                      <Icon name="ChevronDownIcon" size={12} className="opacity-50 group-hover:opacity-100" />
+                                    </button>
+                                    
+                                    {resultMenuOpen === visite.id && (
+                                      <>
+                                        <div className="fixed inset-0 z-[100]" onClick={() => setResultMenuOpen(null)} />
+                                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-[101] w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 animate-fade-in">
+                                          <button
+                                            onClick={() => handleResultChange(visite.id, 'en_attente')}
+                                            className="w-full px-3 py-2 text-left text-xs hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                          >
+                                            <div className="w-2 h-2 rounded-full bg-slate-400" />
+                                            <span className="text-slate-700 font-semibold">En attente</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handleResultChange(visite.id, 'accepte')}
+                                            className="w-full px-3 py-2 text-left text-xs hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                          >
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                            <span className="text-emerald-700 font-semibold">Acceptée</span>
+                                          </button>
+                                          <button
+                                            onClick={() => handleResultChange(visite.id, 'refuse')}
+                                            className="w-full px-3 py-2 text-left text-xs hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                          >
+                                            <div className="w-2 h-2 rounded-full bg-rose-500" />
+                                            <span className="text-rose-700 font-semibold">Refusée</span>
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
+                                      visite.statut_action === 'en_attente'
+                                        ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                                        : visite.statut_action === 'accepte'
+                                        ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                                        : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+                                    }`}
+                                  >
+                                    {visite.statut_action === 'en_attente' ? 'En attente' : visite.statut_action === 'accepte' ? 'Acceptée' : 'Refusée'}
+                                  </span>
+                                )}
                               </td>
                               <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell whitespace-nowrap">
                                 {canViewSensitive(visite)
