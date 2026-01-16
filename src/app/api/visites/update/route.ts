@@ -94,6 +94,7 @@ export async function PUT(request: Request) {
       personne_rencontree: form.personne_rencontree,
       fonction_poste: form.fonction_poste || null,
       ville: form.ville || null,
+      zone: form.zone || null,
       adresse: form.adresse || null,
       tel_fixe: form.tel_fixe || null,
       mobile: form.mobile || null,

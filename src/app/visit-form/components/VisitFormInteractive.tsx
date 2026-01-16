@@ -28,6 +28,7 @@ export default function ModernVisitForm() {
     personne_rencontree: '',
     fonction_poste: '',
     ville: '',
+    zone: '',
     tel_fixe: '',
     mobile: '',
     email: '',
@@ -74,6 +75,7 @@ export default function ModernVisitForm() {
             personne_rencontree: visite.personne_rencontree || '',
             fonction_poste: visite.fonction_poste || '',
             ville: visite.ville || '',
+            zone: visite.zone || '',
             tel_fixe: visite.tel_fixe || '',
             mobile: visite.mobile || '',
             email: visite.email || '',
@@ -124,6 +126,7 @@ export default function ModernVisitForm() {
         statut_action: formData.statut_action,
         fonction_poste: formData.fonction_poste || undefined,
         ville: formData.ville || undefined,
+        zone: formData.zone || undefined,
         tel_fixe: formData.tel_fixe || undefined,
         mobile: formData.mobile || undefined,
         email: formData.email || undefined,
@@ -174,6 +177,7 @@ export default function ModernVisitForm() {
           personne_rencontree: '',
           fonction_poste: '',
           ville: '',
+          zone: '',
           tel_fixe: '',
           mobile: '',
           email: '',
@@ -396,6 +400,22 @@ export default function ModernVisitForm() {
                         value={formData.ville}
                         onChange={(e) => setFormData({...formData, ville: e.target.value})}
                         placeholder="Ex: Tunis"
+                        className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Zone
+                    </label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={formData.zone}
+                        onChange={(e) => setFormData({...formData, zone: e.target.value})}
+                        placeholder="Ex: Douar Hicher, Centre-ville"
                         className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
                       />
                     </div>

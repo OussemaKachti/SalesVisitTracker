@@ -14,6 +14,7 @@ import QuickActionButton from './QuickActionButton';
 import PerformanceChart from './PerformanceChart';
 import TeamMemberCard from './TeamMemberCard';
 import FilterPanel from './FilterPanel';
+import RdvListCard from './RdvListCard';
 
 interface KPIData {
   title: string;
@@ -88,6 +89,8 @@ export default function DashboardInteractive() {
   const [fromFilter, setFromFilter] = useState('');
   const [toFilter, setToFilter] = useState('');
   const [commercialFilter, setCommercialFilter] = useState<string>('');
+  const [villeFilter, setVilleFilter] = useState<string>('');
+  const [zoneFilter, setZoneFilter] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -97,6 +100,12 @@ export default function DashboardInteractive() {
   const [commercialList, setCommercialList] = useState<Array<{ id: string; name: string }>>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<'commercial' | 'admin' | 'consultant' | null>(null);
+  
+  // État pour la card des RDV
+  const [rdvCardOpen, setRdvCardOpen] = useState<string | null>(null);
+  const [selectedVisiteName, setSelectedVisiteName] = useState<string>('');
+  const [selectedVisiteData, setSelectedVisiteData] = useState<Visite | null>(null);
+  const [rdvCounts, setRdvCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setIsHydrated(true);
@@ -266,6 +275,12 @@ export default function DashboardInteractive() {
         if (commercialFilter) {
           params.set('commercial_id', commercialFilter);
         }
+        if (villeFilter.trim()) {
+          params.set('ville', villeFilter.trim());
+        }
+        if (zoneFilter.trim()) {
+          params.set('zone', zoneFilter.trim());
+        }
 
         const visitesResponse = await fetch(`/api/visites?${params.toString()}`);
         if (!visitesResponse.ok) {
@@ -278,6 +293,23 @@ export default function DashboardInteractive() {
         const data = (json?.data ?? []) as Visite[];
         setVisites(data);
         setTotalVisites(json?.pagination?.total ?? null);
+
+        // Charger le nombre de RDV pour chaque visite
+        const counts: Record<string, number> = {};
+        await Promise.all(
+          data.map(async (visite) => {
+            try {
+              const rdvResponse = await fetch(`/api/rendez-vous?visite_id=${visite.id}`);
+              if (rdvResponse.ok) {
+                const rdvJson = await rdvResponse.json();
+                counts[visite.id] = rdvJson.data?.length || 0;
+              }
+            } catch (err) {
+              counts[visite.id] = 0;
+            }
+          })
+        );
+        setRdvCounts(counts);
       } catch (error) {
         console.error('Erreur réseau lors du chargement des visites:', error);
         setVisitesError('Erreur réseau lors du chargement des visites.');
@@ -297,6 +329,8 @@ export default function DashboardInteractive() {
     fromFilter,
     toFilter,
     commercialFilter,
+    villeFilter,
+    zoneFilter,
   ]);
 
   // Récupération de l'équipe réelle (tous les utilisateurs pour le filtre commercial)
@@ -543,6 +577,8 @@ export default function DashboardInteractive() {
                         setFromFilter(filters.from);
                         setToFilter(filters.to);
                         setCommercialFilter(filters.commercial || '');
+                        setVilleFilter(filters.ville || '');
+                        setZoneFilter(filters.zone || '');
                       }}
                       searchTerm={searchTerm}
                       onSearchChange={setSearchTerm}
@@ -558,31 +594,36 @@ export default function DashboardInteractive() {
                       onCommercialChange={setCommercialFilter}
                       commercials={commercialList}
                       isAdmin={currentUserRole === 'admin' || currentUserRole === 'consultant'}
+                      villeFilter={villeFilter}
+                      onVilleChange={setVilleFilter}
+                      zoneFilter={zoneFilter}
+                      onZoneChange={setZoneFilter}
                     />
                   </div>
                 </div>
 
                 <div className="overflow-x-auto border border-border rounded-xl">
-                  <table className="w-full text-xs md:text-sm">
-                    <thead className="bg-muted/60">
-                      <tr className="text-left text-[11px] md:text-xs text-muted-foreground font-cta">
-                        <th className="px-3 py-2.5 md:px-4">Date</th>
-                        <th className="px-3 py-2.5 md:px-4">Entreprise</th>
-                        <th className="px-3 py-2.5 md:px-4">Contact</th>
-                        <th className="px-3 py-2.5 md:px-4 hidden md:table-cell">Objet</th>
-                        <th className="px-3 py-2.5 md:px-4 hidden lg:table-cell">Commercial</th>
-                        <th className="px-3 py-2.5 md:px-4 hidden md:table-cell">Ville</th>
-                        <th className="px-3 py-2.5 md:px-4">Statut</th>
-                        <th className="px-3 py-2.5 md:px-4 hidden sm:table-cell">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                      <tr className="text-left text-[10px] uppercase tracking-wider text-slate-600 font-semibold">
+                        <th className="px-2 py-3 w-[90px]">Date</th>
+                        <th className="px-2 py-3 min-w-[140px]">Entreprise</th>
+                        <th className="px-2 py-3 min-w-[120px]">Contact</th>
+                        <th className="px-2 py-3 w-[90px] hidden md:table-cell">Objet</th>
+                        <th className="px-2 py-3 w-[90px] hidden lg:table-cell">Commercial</th>
+                        <th className="px-2 py-3 w-[80px] hidden md:table-cell">Ville</th>
+                        <th className="px-2 py-3 w-[70px] hidden xl:table-cell">Zone</th>
+                        <th className="px-2 py-3 w-[95px]">Statut</th>
+                        <th className="px-2 py-3 w-[140px]">
                           Résultat
                         </th>
-                        <th className="px-3 py-2.5 md:px-4 hidden lg:table-cell">
+                        <th className="px-2 py-3 w-[65px] hidden lg:table-cell">
                           Montant
                         </th>
-                        <th className="px-3 py-2.5 md:px-4 hidden lg:table-cell">
+                        <th className="px-2 py-3 w-[50px] hidden lg:table-cell">
                           Prob.
                         </th>
-                        <th className="px-3 py-2.5 md:px-4 text-right">Actions</th>
+                        <th className="px-2 py-3 w-[120px] text-center">Actions</th>
                       </tr>
                     </thead>
 
@@ -590,8 +631,7 @@ export default function DashboardInteractive() {
                       {visitesLoading && (
                         <tr>
                           <td
-                            colSpan={10}
-
+                            colSpan={12}
                             className="px-4 py-6 text-center text-xs text-muted-foreground"
                           >
                             Chargement des visites...
@@ -601,8 +641,7 @@ export default function DashboardInteractive() {
                       {!visitesLoading && visites.length === 0 && (
                         <tr>
                           <td
-                            colSpan={10}
-
+                            colSpan={12}
                             className="px-4 py-6 text-center text-xs text-muted-foreground"
                           >
                             Aucune visite ne correspond à vos critères.
@@ -616,40 +655,40 @@ export default function DashboardInteractive() {
                           return (
                             <tr
                               key={visite.id}
-                              className="border-t border-border/60 hover:bg-muted/40 transition-smooth"
+                              className="border-t border-slate-100 hover:bg-blue-50/30 transition-all"
                             >
-                              <td className="px-3 py-3 md:px-4 whitespace-nowrap">
-                                <span className="font-cta text-xs md:text-sm text-foreground">
+                              <td className="px-2 py-2.5 whitespace-nowrap">
+                                <span className="text-[11px] font-medium text-slate-700">
                                   {formatVisitDate(visite.date_visite)}
                                 </span>
                               </td>
-                              <td className="px-3 py-3 md:px-4 max-w-[160px] md:max-w-[200px]">
-                                <p className="text-xs md:text-sm font-cta font-semibold text-foreground truncate">
+                              <td className="px-2 py-2.5">
+                                <p className="text-[11px] font-bold text-slate-900 truncate max-w-[140px]">
                                   {visite.entreprise}
                                 </p>
                               </td>
-                              <td className="px-3 py-3 md:px-4 max-w-[140px] md:max-w-[180px]">
-                                <p className="text-xs md:text-sm text-foreground truncate">
+                              <td className="px-2 py-2.5">
+                                <p className="text-[11px] text-slate-700 truncate max-w-[120px]">
                                   {visite.personne_rencontree}
                                 </p>
                                 {visite.fonction_poste && (
-                                  <p className="text-[11px] text-muted-foreground truncate">
+                                  <p className="text-[9px] text-slate-500 truncate max-w-[120px]">
                                     {visite.fonction_poste}
                                   </p>
                                 )}
-                              </td>                              <td className="px-3 py-3 md:px-4 max-w-[220px] hidden md:table-cell">
+                              </td>                              <td className="px-2 py-2.5 hidden md:table-cell">
                                 {visite.objet_visite ? (
                                   <div className="group relative">
-                                    <div className="flex items-start gap-2 p-2 rounded-lg bg-slate-50/50 border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 transition-all">
-                                      <Icon name="DocumentTextIcon" size={14} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                                      <p className="text-xs text-slate-700 line-clamp-2 leading-relaxed">
+                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 border border-blue-100">
+                                      <Icon name="DocumentTextIcon" size={12} className="text-blue-400 flex-shrink-0" />
+                                      <p className="text-[10px] text-slate-700 truncate max-w-[140px]">
                                         {visite.objet_visite}
                                       </p>
                                     </div>
-                                    {/* Tooltip on hover for long text */}
-                                    {visite.objet_visite.length > 50 && (
-                                      <div className="absolute left-0 top-full mt-2 z-50 hidden group-hover:block">
-                                        <div className="bg-slate-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl max-w-xs">
+                                    {/* Tooltip on hover */}
+                                    {visite.objet_visite.length > 30 && (
+                                      <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block">
+                                        <div className="bg-slate-900 text-white text-[10px] rounded-lg px-2 py-1.5 shadow-xl max-w-[200px]">
                                           <p className="leading-relaxed">{visite.objet_visite}</p>
                                           <div className="absolute -top-1 left-4 w-2 h-2 bg-slate-900 transform rotate-45"></div>
                                         </div>
@@ -657,135 +696,150 @@ export default function DashboardInteractive() {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-xs text-slate-400 italic">—</span>
+                                  <span className="text-[10px] text-slate-400 italic">—</span>
                                 )}
-                              </td>                              <td className="px-3 py-3 md:px-4 text-[11px] md:text-xs text-muted-foreground hidden lg:table-cell">
+                              </td>                              <td className="px-2 py-2.5 text-[10px] text-slate-600 hidden lg:table-cell truncate">
                                 {visite.commercial_name || '—'}
                               </td>
-                              <td className="px-3 py-3 md:px-4 text-xs text-muted-foreground hidden md:table-cell">
+                              <td className="px-2 py-2.5 text-[10px] text-slate-600 hidden md:table-cell">
                                 {visite.ville || '—'}
                               </td>
-                              <td className="px-3 py-3 md:px-4">
+                              <td className="px-2 py-2.5 text-[10px] text-slate-600 hidden xl:table-cell">
+                                {visite.zone || '—'}
+                              </td>
+                              <td className="px-2 py-2.5">
                                 {canManage ? (
                                   <div className="relative">
                                     <button
                                       onClick={() => setStatusMenuOpen(statusMenuOpen === visite.id ? null : visite.id)}
-                                      className={`group inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] md:text-[11px] font-cta transition-all hover:shadow-md ${
+                                      className={`group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold transition-all duration-200 min-w-[80px] justify-center ${
                                         visite.statut_visite === 'a_faire'
-                                          ? 'bg-amber-500/15 text-amber-600 border border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-500/50'
+                                          ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:border-amber-300'
                                           : visite.statut_visite === 'en_cours'
-                                          ? 'bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 hover:border-primary/50'
-                                          : 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/25 hover:border-emerald-500/50'
+                                          ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300'
                                       }`}
                                     >
-                                      {visite.statut_visite === 'a_faire' ? 'À faire' : visite.statut_visite === 'en_cours' ? 'En cours' : 'Terminée'}
-                                      <Icon name="ChevronDownIcon" size={12} className="opacity-50 group-hover:opacity-100" />
+                                      <span className="w-1.5 h-1.5 rounded-full ${
+                                        visite.statut_visite === 'a_faire' ? 'bg-amber-500' :
+                                        visite.statut_visite === 'en_cours' ? 'bg-blue-500' : 'bg-emerald-500'
+                                      }" />
+                                      <span>{visite.statut_visite === 'a_faire' ? 'À faire' : visite.statut_visite === 'en_cours' ? 'En cours' : 'Terminée'}</span>
+                                      <Icon name="ChevronDownIcon" size={10} className="opacity-40 group-hover:opacity-70" />
                                     </button>
                                     
                                     {statusMenuOpen === visite.id && (
                                       <>
                                         <div className="fixed inset-0 z-[100]" onClick={() => setStatusMenuOpen(null)} />
-                                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-[101] w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 animate-fade-in">
+                                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-[101] w-32 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 animate-fade-in">
                                           <button
                                             onClick={() => handleStatusChange(visite.id, 'a_faire')}
-                                            className="w-full px-3 py-2 text-left text-xs hover:bg-amber-50 transition-colors flex items-center gap-2"
+                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-amber-50 transition-colors flex items-center gap-2 group"
                                           >
-                                            <div className="w-2 h-2 rounded-full bg-amber-500" />
-                                            <span className="text-amber-700 font-semibold">À faire</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 group-hover:scale-125 transition-transform" />
+                                            <span className="text-slate-700 font-medium">À faire</span>
                                           </button>
                                           <button
                                             onClick={() => handleStatusChange(visite.id, 'en_cours')}
-                                            className="w-full px-3 py-2 text-left text-xs hover:bg-blue-50 transition-colors flex items-center gap-2"
+                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-blue-50 transition-colors flex items-center gap-2 group"
                                           >
-                                            <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                            <span className="text-blue-700 font-semibold">En cours</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 group-hover:scale-125 transition-transform" />
+                                            <span className="text-slate-700 font-medium">En cours</span>
                                           </button>
                                           <button
                                             onClick={() => handleStatusChange(visite.id, 'termine')}
-                                            className="w-full px-3 py-2 text-left text-xs hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-emerald-50 transition-colors flex items-center gap-2 group"
                                           >
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            <span className="text-emerald-700 font-semibold">Terminée</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 group-hover:scale-125 transition-transform" />
+                                            <span className="text-slate-700 font-medium">Terminée</span>
                                           </button>
                                         </div>
                                       </>
                                     )}
                                   </div>
                                 ) : (
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
-                                      visite.statut_visite === 'a_faire'
-                                        ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                                        : visite.statut_visite === 'en_cours'
-                                        ? 'bg-primary/15 text-primary border border-primary/30'
-                                        : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                                    }`}
-                                  >
-                                    {visite.statut_visite === 'a_faire' ? 'À faire' : visite.statut_visite === 'en_cours' ? 'En cours' : 'Terminée'}
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold ${
+                                    visite.statut_visite === 'a_faire'
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                      : visite.statut_visite === 'en_cours'
+                                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                      visite.statut_visite === 'a_faire' ? 'bg-amber-500' :
+                                      visite.statut_visite === 'en_cours' ? 'bg-blue-500' : 'bg-emerald-500'
+                                    }`} />
+                                    <span>{visite.statut_visite === 'a_faire' ? 'À faire' : visite.statut_visite === 'en_cours' ? 'En cours' : 'Terminée'}</span>
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3 py-3 md:px-4 hidden sm:table-cell">
+                              <td className="px-2 py-2.5">
                                 {canManage ? (
                                   <div className="relative">
                                     <button
                                       onClick={() => setResultMenuOpen(resultMenuOpen === visite.id ? null : visite.id)}
-                                      className={`group inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10px] md:text-[11px] font-cta transition-all hover:shadow-md ${
+                                      className={`group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold transition-all duration-200 min-w-[85px] justify-center ${
                                         visite.statut_action === 'en_attente'
-                                          ? 'bg-slate-500/15 text-slate-500 border border-slate-500/30 hover:bg-slate-500/25 hover:border-slate-500/50'
+                                          ? 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                                           : visite.statut_action === 'accepte'
-                                          ? 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/25 hover:border-emerald-500/50'
-                                          : 'bg-rose-500/15 text-rose-600 border border-rose-500/30 hover:bg-rose-500/25 hover:border-rose-500/50'
+                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300'
+                                          : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 hover:border-rose-300'
                                       }`}
                                     >
-                                      {visite.statut_action === 'en_attente' ? 'En attente' : visite.statut_action === 'accepte' ? 'Acceptée' : 'Refusée'}
-                                      <Icon name="ChevronDownIcon" size={12} className="opacity-50 group-hover:opacity-100" />
+                                      <span className={`w-1.5 h-1.5 rounded-full ${
+                                        visite.statut_action === 'en_attente' ? 'bg-slate-400' :
+                                        visite.statut_action === 'accepte' ? 'bg-emerald-500' : 'bg-rose-500'
+                                      }`} />
+                                      <span>{visite.statut_action === 'en_attente' ? 'En attente' : visite.statut_action === 'accepte' ? 'Acceptée' : 'Refusée'}</span>
+                                      <Icon name="ChevronDownIcon" size={10} className="opacity-40 group-hover:opacity-70" />
                                     </button>
                                     
                                     {resultMenuOpen === visite.id && (
                                       <>
                                         <div className="fixed inset-0 z-[100]" onClick={() => setResultMenuOpen(null)} />
-                                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-[101] w-36 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 animate-fade-in">
+                                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-[101] w-32 bg-white rounded-lg shadow-xl border border-slate-200 py-1.5 animate-fade-in">
                                           <button
                                             onClick={() => handleResultChange(visite.id, 'en_attente')}
-                                            className="w-full px-3 py-2 text-left text-xs hover:bg-slate-50 transition-colors flex items-center gap-2"
+                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-slate-50 transition-colors flex items-center gap-2 group"
                                           >
-                                            <div className="w-2 h-2 rounded-full bg-slate-400" />
-                                            <span className="text-slate-700 font-semibold">En attente</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-400 group-hover:scale-125 transition-transform" />
+                                            <span className="text-slate-700 font-medium">En attente</span>
                                           </button>
                                           <button
                                             onClick={() => handleResultChange(visite.id, 'accepte')}
-                                            className="w-full px-3 py-2 text-left text-xs hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-emerald-50 transition-colors flex items-center gap-2 group"
                                           >
-                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            <span className="text-emerald-700 font-semibold">Acceptée</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 group-hover:scale-125 transition-transform" />
+                                            <span className="text-slate-700 font-medium">Acceptée</span>
                                           </button>
                                           <button
                                             onClick={() => handleResultChange(visite.id, 'refuse')}
-                                            className="w-full px-3 py-2 text-left text-xs hover:bg-rose-50 transition-colors flex items-center gap-2"
+                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-rose-50 transition-colors flex items-center gap-2 group"
                                           >
-                                            <div className="w-2 h-2 rounded-full bg-rose-500" />
-                                            <span className="text-rose-700 font-semibold">Refusée</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-rose-500 group-hover:scale-125 transition-transform" />
+                                            <span className="text-slate-700 font-medium">Refusée</span>
                                           </button>
                                         </div>
                                       </>
                                     )}
                                   </div>
                                 ) : (
-                                  <span
-                                    className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] md:text-[11px] font-cta ${
-                                      visite.statut_action === 'en_attente'
-                                        ? 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
-                                        : visite.statut_action === 'accepte'
-                                        ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                                        : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
-                                    }`}
-                                  >
-                                    {visite.statut_action === 'en_attente' ? 'En attente' : visite.statut_action === 'accepte' ? 'Acceptée' : 'Refusée'}
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-semibold ${
+                                    visite.statut_action === 'en_attente'
+                                      ? 'bg-slate-50 text-slate-700 border border-slate-200'
+                                      : visite.statut_action === 'accepte'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                      visite.statut_action === 'en_attente' ? 'bg-slate-400' :
+                                      visite.statut_action === 'accepte' ? 'bg-emerald-500' : 'bg-rose-500'
+                                    }`} />
+                                    <span>{visite.statut_action === 'en_attente' ? 'En attente' : visite.statut_action === 'accepte' ? 'Acceptée' : 'Refusée'}</span>
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell whitespace-nowrap">
+                              <td className="px-2 py-2.5 text-[10px] font-semibold text-slate-700 hidden lg:table-cell whitespace-nowrap">
                                 {canViewSensitive(visite)
                                   ? typeof visite.montant === 'number'
                                     ? `${visite.montant.toLocaleString('fr-FR')} DT`
@@ -794,56 +848,98 @@ export default function DashboardInteractive() {
                                   ? '*****'
                                   : '—'}
                               </td>
-                              <td className="px-3 py-3 md:px-4 text-xs text-foreground hidden lg:table-cell">
+                              <td className="px-2 py-2.5 hidden lg:table-cell">
                                 {canViewSensitive(visite)
                                   ? typeof visite.probabilite === 'number'
-                                    ? `${visite.probabilite}%`
+                                    ? <span className="inline-flex items-center justify-center px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{visite.probabilite}%</span>
                                     : '—'
                                   : typeof visite.probabilite === 'number'
                                   ? '*****'
                                   : '—'}
                               </td>
-                              <td className="px-3 py-3 md:px-4 text-right">
-                                {canManage && (
-                                  <div className="flex items-center justify-end gap-2">
+                              <td className="px-2 py-2.5">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  {/* Bouton RDV avec tooltip */}
+                                  <div className="relative group">
                                     <button
                                       type="button"
-                                      className="inline-flex items-center justify-center p-1.5 rounded-full border border-border text-[11px] font-cta hover:bg-muted transition-smooth"
+                                      className="relative inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-all duration-200 hover:scale-105 hover:shadow-lg"
                                       onClick={() => {
-                                        router.push(`/visit-form?edit=${visite.id}`);
+                                        setRdvCardOpen(visite.id);
+                                        setSelectedVisiteName(visite.entreprise);
+                                        setSelectedVisiteData(visite);
                                       }}
-                                      aria-label="Modifier la visite"
+                                      aria-label="Voir les rendez-vous"
                                     >
-                                      <Icon name="PencilSquareIcon" size={14} />
+                                      <Icon name="EyeIcon" size={14} />
+                                      {rdvCounts[visite.id] > 0 && (
+                                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 text-[8px] font-bold text-white bg-red-500 rounded-full border-2 border-white shadow-sm">
+                                          {rdvCounts[visite.id]}
+                                        </span>
+                                      )}
                                     </button>
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center justify-center p-1.5 rounded-full border border-destructive/40 text-[11px] font-cta text-destructive hover:bg-destructive/10 transition-smooth"
-                                      onClick={async () => {
-                                        if (!confirm('Êtes-vous sûr de vouloir supprimer cette visite ?')) {
-                                          return;
-                                        }
-                                        try {
-                                          const response = await fetch(`/api/visites/delete?id=${visite.id}`, {
-                                            method: 'DELETE',
-                                          });
-                                          if (response.ok) {
-                                            success('Visite supprimée avec succès.');
-                                            setTimeout(() => window.location.reload(), 500);
-                                          } else {
-                                            const errorData = await response.json().catch(() => ({}));
-                                            error(errorData.error || 'Impossible de supprimer la visite.');
-                                          }
-                                        } catch (err) {
-                                          error('Erreur lors de la suppression de la visite.');
-                                        }
-                                      }}
-                                      aria-label="Supprimer la visite"
-                                    >
-                                      <Icon name="TrashIcon" size={14} />
-                                    </button>
+                                    {/* Tooltip */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-slate-900 text-white text-[9px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                      Rendez-vous
+                                    </div>
                                   </div>
-                                )}
+
+                                  {canManage && (
+                                    <>
+                                      {/* Bouton Edit avec tooltip */}
+                                      <div className="relative group">
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-500 hover:text-white hover:border-slate-500 transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                                          onClick={() => {
+                                            router.push(`/visit-form?edit=${visite.id}`);
+                                          }}
+                                          aria-label="Modifier la visite"
+                                        >
+                                          <Icon name="PencilSquareIcon" size={14} />
+                                        </button>
+                                        {/* Tooltip */}
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-slate-900 text-white text-[9px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                          Modifier
+                                        </div>
+                                      </div>
+
+                                      {/* Bouton Delete avec tooltip */}
+                                      <div className="relative group">
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                                          onClick={async () => {
+                                            if (!confirm('Êtes-vous sûr de vouloir supprimer cette visite ?')) {
+                                              return;
+                                            }
+                                            try {
+                                              const response = await fetch(`/api/visites/delete?id=${visite.id}`, {
+                                                method: 'DELETE',
+                                              });
+                                              if (response.ok) {
+                                                success('Visite supprimée avec succès.');
+                                                setTimeout(() => window.location.reload(), 500);
+                                              } else {
+                                                const errorData = await response.json().catch(() => ({}));
+                                                error(errorData.error || 'Impossible de supprimer la visite.');
+                                              }
+                                            } catch (err) {
+                                              error('Erreur lors de la suppression de la visite.');
+                                            }
+                                          }}
+                                          aria-label="Supprimer la visite"
+                                        >
+                                          <Icon name="TrashIcon" size={14} />
+                                        </button>
+                                        {/* Tooltip */}
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-slate-900 text-white text-[9px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                          Supprimer
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1008,6 +1104,39 @@ export default function DashboardInteractive() {
           </div>
         </main>
       </div>
+
+      {/* RDV List Card */}
+      {rdvCardOpen && selectedVisiteData && (
+        <RdvListCard
+          visiteId={rdvCardOpen}
+          visiteName={selectedVisiteName}
+          visiteData={selectedVisiteData}
+          isOpen={true}
+          onClose={() => {
+            setRdvCardOpen(null);
+            setSelectedVisiteData(null);
+            // Recharger les compteurs RDV après fermeture
+            const fetchRdvCounts = async () => {
+              const counts: Record<string, number> = {};
+              await Promise.all(
+                visites.map(async (visite) => {
+                  try {
+                    const rdvResponse = await fetch(`/api/rendez-vous?visite_id=${visite.id}`);
+                    if (rdvResponse.ok) {
+                      const rdvJson = await rdvResponse.json();
+                      counts[visite.id] = rdvJson.data?.length || 0;
+                    }
+                  } catch (err) {
+                    counts[visite.id] = 0;
+                  }
+                })
+              );
+              setRdvCounts(counts);
+            };
+            fetchRdvCounts();
+          }}
+        />
+      )}
       </div>
     </>
   );

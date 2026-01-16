@@ -23,6 +23,7 @@ export interface Visite {
   personne_rencontree: string
   fonction_poste: string | null
   ville: string | null
+  zone: string | null
   adresse: string | null
   tel_fixe: string | null
   mobile: string | null
@@ -56,6 +57,7 @@ export interface VisiteFormData {
   personne_rencontree: string
   fonction_poste?: string
   ville?: string
+  zone?: string
   adresse?: string
   tel_fixe?: string
   mobile?: string
@@ -144,3 +146,69 @@ export interface VisiteProduit {
   interet_client?: 'faible' | 'moyen' | 'fort';
   created_at: string;
 }
+
+// Types pour les rendez-vous
+export type StatutRdv = 'planifie' | 'confirme' | 'reporte' | 'annule' | 'termine'
+export type PrioriteRdv = 'basse' | 'normale' | 'haute' | 'urgente'
+
+export interface RendezVous {
+  id: string
+  commercial_id: string
+  commercial_name?: string
+  
+  // Client
+  entreprise: string
+  personne_contact: string
+  telephone: string | null
+  email: string | null
+  
+  // Localisation
+  ville: string | null
+  zone: string | null
+  adresse: string | null
+  
+  // RDV
+  date_rdv: string
+  duree_estimee: number
+  objet: string
+  description: string | null
+  
+  // Statut
+  statut: StatutRdv
+  priorite: PrioriteRdv
+  
+  // Rappel
+  rappel_envoye: boolean
+  rappel_date: string | null
+  
+  // Résultat
+  compte_rendu: string | null
+  visite_id: string | null
+  
+  // Système
+  created_at: string
+  updated_at: string
+  
+  // Relations
+  commercial?: Profile
+  visite?: Visite
+}
+
+export interface RendezVousFormData {
+  entreprise: string
+  personne_contact: string
+  fonction_contact?: string
+  tel_contact?: string
+  email_contact?: string
+  date_rdv: string
+  heure_debut: string
+  heure_fin?: string
+  lieu?: string
+  objet?: string
+  description?: string
+  statut_rdv?: StatutRdv
+  priorite?: PrioriteRdv
+  rappel_avant?: number | null
+  visite_id?: string
+}
+

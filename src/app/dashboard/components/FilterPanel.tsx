@@ -19,6 +19,10 @@ interface FilterPanelProps {
   onCommercialChange?: (value: string) => void;
   commercials?: Array<{ id: string; name: string }>;
   isAdmin?: boolean;
+  villeFilter?: string;
+  onVilleChange?: (value: string) => void;
+  zoneFilter?: string;
+  onZoneChange?: (value: string) => void;
 }
 
 export interface FilterState {
@@ -28,6 +32,8 @@ export interface FilterState {
   from: string;
   to: string;
   commercial?: string;
+  ville?: string;
+  zone?: string;
 }
 
 export default function FilterPanel({
@@ -46,6 +52,10 @@ export default function FilterPanel({
   onCommercialChange,
   commercials = [],
   isAdmin = false,
+  villeFilter = '',
+  onVilleChange,
+  zoneFilter = '',
+  onZoneChange,
 }: FilterPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -57,6 +67,8 @@ export default function FilterPanel({
     fromFilter,
     toFilter,
     commercialFilter,
+    villeFilter,
+    zoneFilter,
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -68,6 +80,12 @@ export default function FilterPanel({
     if (onCommercialChange) {
       onCommercialChange('');
     }
+    if (onVilleChange) {
+      onVilleChange('');
+    }
+    if (onZoneChange) {
+      onZoneChange('');
+    }
     onApply({
       search: '',
       statutVisite: '',
@@ -75,6 +93,8 @@ export default function FilterPanel({
       from: '',
       to: '',
       commercial: '',
+      ville: '',
+      zone: '',
     });
     setIsOpen(false);
   };
@@ -87,6 +107,8 @@ export default function FilterPanel({
       from: fromFilter,
       to: toFilter,
       commercial: commercialFilter,
+      ville: villeFilter,
+      zone: zoneFilter,
     });
     setIsOpen(false);
   };
@@ -186,6 +208,52 @@ export default function FilterPanel({
                 <option value="refuse">Refusée</option>
               </select>
             </div>
+
+            {/* Ville Filter */}
+            {onVilleChange && (
+              <div className="space-y-2">
+                <label className="block text-xs font-cta font-semibold text-gray-900">
+                  Ville
+                </label>
+                <div className="relative">
+                  <Icon
+                    name="BuildingOffice2Icon"
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={villeFilter}
+                    onChange={(e) => onVilleChange(e.target.value)}
+                    placeholder="Ex: Tunis, Ariana..."
+                    className="w-full pl-9 pr-3 py-2 rounded-lg bg-white border-2 border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Zone Filter */}
+            {onZoneChange && (
+              <div className="space-y-2">
+                <label className="block text-xs font-cta font-semibold text-gray-900">
+                  Zone
+                </label>
+                <div className="relative">
+                  <Icon
+                    name="MapPinIcon"
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={zoneFilter}
+                    onChange={(e) => onZoneChange(e.target.value)}
+                    placeholder="Ex: Douar Hicher, Centre-ville..."
+                    className="w-full pl-9 pr-3 py-2 rounded-lg bg-white border-2 border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder:text-gray-500"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Commercial Filter - Pour tous les utilisateurs */}
             {onCommercialChange && commercials.length > 0 && (
