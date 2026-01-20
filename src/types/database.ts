@@ -96,6 +96,8 @@ export interface StatsVisites {
 
 export interface EquipeMember extends Profile {
   total_visites: number
+  visites_semaine?: number
+  visites_mois?: number
 }
 
 // Types pour le catalogue produits

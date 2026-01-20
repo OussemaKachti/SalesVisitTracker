@@ -11,6 +11,8 @@ interface TeamMemberCardProps {
   avatar: string;
   avatarAlt: string;
   visitsToday: number;
+  visitsThisWeek?: number;
+  visitsThisMonth?: number;
   status: 'active' | 'away' | 'offline';
   mustChangePassword?: boolean;
 }
@@ -22,6 +24,8 @@ export default function TeamMemberCard({
   avatar, 
   avatarAlt, 
   visitsToday, 
+  visitsThisWeek = 0,
+  visitsThisMonth = 0,
   status,
   mustChangePassword
 }: TeamMemberCardProps) {
@@ -79,12 +83,7 @@ export default function TeamMemberCard({
   const weeklyTarget = 24;
   const monthlyTarget = 96;
   
-  // Pour l'instant, on utilise visitsToday comme nombre de visites du mois
-  // (le backend pourrait être amélioré pour fournir visitsThisWeek et visitsThisMonth)
-  const visitsThisMonth = visitsToday;
-  // Estimation : on suppose qu'on est à environ 1/4 du mois
-  const visitsThisWeek = Math.floor(visitsToday / 4);
-  
+  // Utiliser les vraies valeurs passées en props
   const weeklyProgress = Math.min((visitsThisWeek / weeklyTarget) * 100, 100);
   const monthlyProgress = Math.min((visitsThisMonth / monthlyTarget) * 100, 100);
 

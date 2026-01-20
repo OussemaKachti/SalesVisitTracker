@@ -69,6 +69,18 @@ export default function CalendarView({ currentUserRole, currentUserId }: Calenda
     fetchAppointments();
   }, [currentDate, view]);
 
+  // Listen for RDV changes to refresh automatically
+  useEffect(() => {
+    const handleRdvChange = () => {
+      fetchAppointments();
+    };
+
+    window.addEventListener('rdv-updated', handleRdvChange);
+    return () => {
+      window.removeEventListener('rdv-updated', handleRdvChange);
+    };
+  }, []);
+
   const fetchAppointments = async () => {
     try {
       setLoading(true);

@@ -53,6 +53,8 @@ interface TeamMember {
   avatar: string;
   avatarAlt: string;
   visitsToday: number;
+  visitsThisWeek?: number;
+  visitsThisMonth?: number;
   status: 'active' | 'away' | 'offline';
   mustChangePassword?: boolean;
 }
@@ -367,27 +369,8 @@ export default function DashboardInteractive() {
         
         setCommercialList(commercialOptions);
         
-        // Récupérer le compte total de visites pour chaque commercial
-        const visitCountByCommercial: Record<string, number> = {};
-        
-        await Promise.all(
-          data.map(async (member) => {
-            try {
-              const params = new URLSearchParams({
-                commercial_id: member.id,
-                pageSize: '1' // On veut juste le total, pas les données
-              });
-              const response = await fetch(`/api/visites?${params.toString()}`);
-              if (response.ok) {
-                const result = await response.json();
-                visitCountByCommercial[member.id] = result?.pagination?.total ?? 0;
-              }
-            } catch (error) {
-              console.error(`Erreur lors du comptage des visites pour ${member.id}:`, error);
-              visitCountByCommercial[member.id] = 0;
-            }
-          })
-        );
+        // L'API retourne maintenant directement les compteurs de visites
+        // (total_visites, visites_semaine, visites_mois)
         
         setTeamMembersState(
           data.map((member) => ({
@@ -396,7 +379,9 @@ export default function DashboardInteractive() {
             role: member.role || 'commercial',
             avatar: DEFAULT_AVATAR_SRC,
             avatarAlt: DEFAULT_AVATAR_ALT,
-            visitsToday: visitCountByCommercial[member.id] || 0,
+            visitsToday: member.total_visites || 0,
+            visitsThisWeek: member.visites_semaine || 0,
+            visitsThisMonth: member.visites_mois || 0,
             status: 'active' as const,
           }))
         );
@@ -1285,6 +1270,7 @@ export default function DashboardInteractive() {
           visiteName={selectedVisiteName}
           visiteData={selectedVisiteData}
           isOpen={true}
+          isAdmin={currentUserRole === 'admin'}
           onClose={() => {
             setRdvCardOpen(null);
             setSelectedVisiteData(null);

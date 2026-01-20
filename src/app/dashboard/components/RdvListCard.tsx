@@ -11,6 +11,7 @@ interface RdvListCardProps {
   visiteData?: Visite;
   isOpen: boolean;
   onClose: () => void;
+  isAdmin?: boolean;
 }
 
 export default function RdvListCard({
@@ -19,6 +20,7 @@ export default function RdvListCard({
   visiteData,
   isOpen,
   onClose,
+  isAdmin = false,
 }: RdvListCardProps) {
   const [rdvList, setRdvList] = useState<RendezVous[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,6 +66,8 @@ export default function RdvListCard({
 
       await fetchRdvs();
       setIsModalOpen(false);
+      // Notify other components (like CalendarView) that RDV list changed
+      window.dispatchEvent(new CustomEvent('rdv-updated'));
     } catch (err) {
       console.error('Erreur:', err);
       alert('Impossible de créer le rendez-vous.');
@@ -87,6 +91,8 @@ export default function RdvListCard({
       await fetchRdvs();
       setIsModalOpen(false);
       setEditingRdv(null);
+      // Notify other components (like CalendarView) that RDV list changed
+      window.dispatchEvent(new CustomEvent('rdv-updated'));
     } catch (err) {
       console.error('Erreur:', err);
       alert('Impossible de modifier le rendez-vous.');
@@ -108,6 +114,8 @@ export default function RdvListCard({
       }
 
       await fetchRdvs();
+      // Notify other components (like CalendarView) that RDV list changed
+      window.dispatchEvent(new CustomEvent('rdv-updated'));
     } catch (err) {
       console.error('Erreur:', err);
       alert('Impossible de supprimer le rendez-vous.');
@@ -472,6 +480,7 @@ export default function RdvListCard({
             : undefined
         }
         mode={editingRdv ? 'edit' : 'create'}
+        isAdmin={isAdmin}
       />
     </>
   );

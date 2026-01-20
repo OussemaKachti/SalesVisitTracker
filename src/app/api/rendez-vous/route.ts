@@ -153,12 +153,38 @@ export async function POST(request: Request) {
       );
     }
 
+    // Client Supabase authentifié
+    const supabaseDb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    });
+
+    // Déterminer le commercial_id
+    // Si une visite_id est fournie, utiliser le commercial_id de la visite
+    // Sinon, utiliser l'utilisateur connecté
+    let commercialId = userData.user.id;
+
+    if (form.visite_id) {
+      const { data: visiteData, error: visiteError } = await supabaseDb
+        .from('visites')
+        .select('commercial_id')
+        .eq('id', form.visite_id)
+        .single();
+
+      if (!visiteError && visiteData?.commercial_id) {
+        commercialId = visiteData.commercial_id;
+      }
+    }
+
     // Combiner date et heure pour créer un timestamp
     const dateRdvTimestamp = `${form.date_rdv}T${form.heure_debut}:00`;
 
     // Préparer les données pour l'insertion
     const insertPayload = {
-      commercial_id: userData.user.id,
+      commercial_id: commercialId,
       entreprise: form.entreprise,
       personne_contact: form.personne_contact || null,
       telephone: form.tel_contact || null,
@@ -181,15 +207,6 @@ export async function POST(request: Request) {
       compte_rendu: null,
       visite_id: form.visite_id || null,
     };
-
-    // Client Supabase authentifié
-    const supabaseDb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
-    });
 
     const { data, error } = await supabaseDb
       .from('rendez_vous')

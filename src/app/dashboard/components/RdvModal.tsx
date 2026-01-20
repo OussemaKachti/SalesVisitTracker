@@ -11,6 +11,7 @@ interface RdvModalProps {
   visiteId?: string;
   initialData?: Partial<RendezVousFormData>;
   mode?: 'create' | 'edit';
+  isAdmin?: boolean;
 }
 
 export default function RdvModal({
@@ -20,6 +21,7 @@ export default function RdvModal({
   visiteId,
   initialData,
   mode = 'create',
+  isAdmin = false,
 }: RdvModalProps) {
   const [formData, setFormData] = useState<RendezVousFormData>({
     entreprise: '',
@@ -173,6 +175,23 @@ export default function RdvModal({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Admin Assignment Info */}
+            {isAdmin && visiteId && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-100">
+                    <Icon name="LinkIcon" size={18} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900">Assignation à une visite</p>
+                    <p className="text-xs text-blue-700">
+                      Ce rendez-vous sera lié à la visite sélectionnée et attribué au commercial responsable.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Section: Informations client */}
             <div className="space-y-4">
               <h3 className="text-sm font-cta font-bold text-gray-900 flex items-center gap-2">
