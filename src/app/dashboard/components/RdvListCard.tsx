@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Icon from '../../../components/ui/AppIcon';
 import type { RendezVous, Visite } from '@/types/database';
 import RdvModal from './RdvModal';
+import VisiteNoteListCard from './VisiteNoteListCard';
 
 interface RdvListCardProps {
   visiteId: string;
@@ -26,6 +27,7 @@ export default function RdvListCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [editingRdv, setEditingRdv] = useState<RendezVous | null>(null);
 
   useEffect(() => {
@@ -236,6 +238,13 @@ export default function RdvListCard({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsNotesOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-white/25 bg-white/10 text-white text-xs font-medium hover:bg-white/15 hover:border-white/40 transition-colors"
+              >
+                <Icon name="NotebookIcon" size={16} className="text-white" />
+                <span>Notes</span>
+              </button>
               <button
                 onClick={() => {
                   setEditingRdv(null);
@@ -482,6 +491,14 @@ export default function RdvListCard({
         mode={editingRdv ? 'edit' : 'create'}
         isAdmin={isAdmin}
       />
+      {isNotesOpen && (
+        <VisiteNoteListCard
+          visiteId={visiteId}
+          visiteName={visiteName}
+          isOpen={isNotesOpen}
+          onClose={() => setIsNotesOpen(false)}
+        />
+      )}
     </>
   );
 }
