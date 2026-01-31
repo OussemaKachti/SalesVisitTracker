@@ -14,10 +14,21 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+export async function GET(request: Request) {
+  // GET pratique pour les crons (serveur perso, curl, etc.)
+  return handleReminders(request);
+}
+
 export async function POST(request: Request) {
+  // POST pratique pour tester manuellement (Postman, Invoke-WebRequest, ...)
+  return handleReminders(request);
+}
+
+async function handleReminders(request: Request) {
   const url = new URL(request.url);
   const secret = url.searchParams.get('secret');
 
+  // Protection simple par token dans l'URL
   if (!secret || secret !== process.env.REMINDER_SECRET_TOKEN) {
     return NextResponse.json({ error: 'Accès non autorisé.' }, { status: 401 });
   }
