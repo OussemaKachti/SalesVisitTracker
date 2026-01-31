@@ -526,7 +526,14 @@ export default function CalendarView({ currentUserRole, currentUserId }: Calenda
                                     }
                                 `}>
                                     <span className="text-[10px] font-bold uppercase tracking-wide opacity-80">
-                                        {isToday ? "Auj." : isTomorrow ? "Demain" : event.start.toLocaleDateString('fr-FR', {weekday: 'short'}).replace('.','')}
+                                        {isToday
+                                          ? "Auj."
+                                          : isTomorrow
+                                          ? "Demain"
+                                          : event.start.toLocaleDateString('fr-FR', {
+                                              weekday: 'short',
+                                              timeZone: 'UTC',
+                                            }).replace('.', '')}
                                     </span>
                                     <span className="text-2xl font-black leading-none">
                                         {event.start.getDate()}
@@ -550,9 +557,19 @@ export default function CalendarView({ currentUserRole, currentUserId }: Calenda
                                             ${isToday ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}
                                         `}>
                                             <Icon name="ClockIcon" size={10} className="inline mr-1" />
-                                            {event.start.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
+                                            {event.start.toLocaleTimeString('fr-FR', {
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                              hour12: false,
+                                              timeZone: 'UTC',
+                                            })}
                                             {' - '}
-                                            {event.end.toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'})}
+                                            {event.end.toLocaleTimeString('fr-FR', {
+                                              hour: '2-digit',
+                                              minute: '2-digit',
+                                              hour12: false,
+                                              timeZone: 'UTC',
+                                            })}
                                         </span>
                                         {isToday && (
                                             <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full animate-pulse">
@@ -670,7 +687,19 @@ export default function CalendarView({ currentUserRole, currentUserId }: Calenda
                     <h4 className="font-bold text-sm leading-tight">{hoveredEventData.title}</h4>
                     <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
                         <Icon name="ClockIcon" size={10} />
-                        {hoveredEventData.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {hoveredEventData.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {hoveredEventData.start.toLocaleTimeString('fr-FR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                          timeZone: 'UTC',
+                        })}{' '}
+                        -{' '}
+                        {hoveredEventData.end.toLocaleTimeString('fr-FR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                          timeZone: 'UTC',
+                        })}
                     </span>
                 </div>
             </div>

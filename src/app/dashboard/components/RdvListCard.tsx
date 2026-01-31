@@ -138,6 +138,8 @@ export default function RdvListCard({
     return date.toLocaleTimeString('fr-FR', {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
+      timeZone: 'UTC',
     });
   };
 
@@ -431,13 +433,23 @@ export default function RdvListCard({
           editingRdv
             ? (() => {
                 const rdvDate = new Date(editingRdv.date_rdv);
-                const heureDebut = rdvDate.toTimeString().slice(0, 5);
+                const heureDebut = rdvDate.toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                  timeZone: 'UTC',
+                });
                 
                 // Calculer heure_fin à partir de duree_estimee
                 let heureFin = '';
                 if (editingRdv.duree_estimee) {
                   const endDate = new Date(rdvDate.getTime() + editingRdv.duree_estimee * 60000);
-                  heureFin = endDate.toTimeString().slice(0, 5);
+                  heureFin = endDate.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                    timeZone: 'UTC',
+                  });
                 }
                 
                 // Calculer rappel_avant à partir de rappel_date
